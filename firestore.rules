@@ -1,0 +1,198 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOng() {
+      return request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid))
+          .data.perfil == 'Ong/Clinica';
+    }
+
+    match /users/{userId} {
+      allow get: if request.auth != null
+        && request.auth.uid == userId;
+
+      allow create, update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasAll(['uid', 'email'])
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'email',
+          'telefone',
+          'perfil',
+          'configuracaoInicialPendente',
+          'cnpj'
+        ])
+        && request.resource.data.uid == userId
+        && request.resource.data.email is string
+        && (!('telefone' in request.resource.data.keys())
+          || request.resource.data.telefone is string)
+        && (!('perfil' in request.resource.data.keys())
+          || request.resource.data.perfil in ['Denunciante', 'Ong/Clinica'])
+        && (!('configuracaoInicialPendente' in request.resource.data.keys())
+          || request.resource.data.configuracaoInicialPendente is bool)
+        && (!('cnpj' in request.resource.data.keys())
+          || request.resource.data.cnpj is string);
+    }
+
+    match /denuncias/{denunciaId} {
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasAll([
+          'usuarioId',
+          'emailUsuario',
+          'tipo',
+          'especie',
+          'porte',
+          'condicaoAnimal',
+          'descricao',
+          'endereco',
+          'latitude',
+          'longitude',
+          'placaVeiculo',
+          'modeloVeiculo',
+          'corVeiculo',
+          'detalhesAutor',
+          'fotoUrl',
+          'status',
+          'criadoEm',
+          'atualizacoes',
+          'ultimaAtualizacao',
+          'statusAtualizadoEm'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'usuarioId',
+          'emailUsuario',
+          'tipo',
+          'especie',
+          'porte',
+          'condicaoAnimal',
+          'descricao',
+          'endereco',
+          'latitude',
+          'longitude',
+          'placaVeiculo',
+          'modeloVeiculo',
+          'corVeiculo',
+          'detalhesAutor',
+          'fotoUrl',
+          'status',
+          'criadoEm',
+          'atualizacoes',
+          'ultimaAtualizacao',
+          'statusAtualizadoEm'
+        ])
+        && request.resource.data.usuarioId == request.auth.uid
+        && get(/databases/$(database)/documents/users/$(request.auth.uid))
+          .data.perfil == 'Denunciante'
+        && (request.resource.data.emailUsuario == null
+          || request.resource.data.emailUsuario is string)
+        && request.resource.data.tipo in ['Flagrante', 'Animal encontrado']
+        && request.resource.data.especie is string
+        && request.resource.data.porte is string
+        && request.resource.data.condicaoAnimal is string
+        && request.resource.data.descricao is string
+        && request.resource.data.descricao.size() > 0
+        && request.resource.data.endereco is string
+        && request.resource.data.endereco.size() > 0
+        && (request.resource.data.latitude == null
+          || request.resource.data.latitude is number)
+        && (request.resource.data.longitude == null
+          || request.resource.data.longitude is number)
+        && (request.resource.data.placaVeiculo == null
+          || request.resource.data.placaVeiculo is string)
+        && (request.resource.data.modeloVeiculo == null
+          || request.resource.data.modeloVeiculo is string)
+        && (request.resource.data.corVeiculo == null
+          || request.resource.data.corVeiculo is string)
+        && (request.resource.data.detalhesAutor == null
+          || request.resource.data.detalhesAutor is string)
+        && (request.resource.data.fotoUrl == null
+          || request.resource.data.fotoUrl is string)
+        && request.resource.data.status == 'Pendente'
+        && request.resource.data.criadoEm == request.time
+        && request.resource.data.atualizacoes is list
+        && request.resource.data.atualizacoes.size() == 0
+        && request.resource.data.ultimaAtualizacao is string
+        && request.resource.data.statusAtualizadoEm == request.time;
+
+      allow update: if isOng()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status',
+          'atualizacoes',
+          'ultimaAtualizacao',
+          'statusAtualizadoEm',
+          'atendidoPor',
+          'atendidoPorEmail'
+        ])
+        && request.resource.data.diff(resource.data).affectedKeys().hasAll([
+          'status',
+          'atualizacoes',
+          'ultimaAtualizacao',
+          'statusAtualizadoEm'
+        ])
+        && request.resource.data.status in [
+          'Em atendimento',
+          'Animal resgatado',
+          'Atendimento finalizado'
+        ]
+        && request.resource.data.statusAtualizadoEm == request.time
+        && request.resource.data.ultimaAtualizacao is string
+        && request.resource.data.ultimaAtualizacao.size() > 0
+        && request.resource.data.atualizacoes is list
+        && request.resource.data.atualizacoes.size()
+          == resource.data.get('atualizacoes', []).size() + 1
+        && request.resource.data.atualizacoes.hasAll(
+          resource.data.get('atualizacoes', [])
+        )
+        && request.resource.data.atendidoPor == request.auth.uid
+        && (resource.data.status == 'Pendente'
+          ? request.resource.data.status == 'Em atendimento'
+            && !('atendidoPor' in resource.data.keys())
+          : resource.data.atendidoPor == request.auth.uid
+            && (resource.data.status in ['Em atendimento', 'Em Atendimento']
+              ? request.resource.data.status in [
+                'Em atendimento',
+                'Animal resgatado',
+                'Atendimento finalizado'
+              ]
+              : resource.data.status in [
+                'Animal resgatado',
+                'Resgatado',
+                'Resgatados'
+              ]
+                && request.resource.data.status in [
+                  'Animal resgatado',
+                  'Atendimento finalizado'
+                ]))
+        && (request.resource.data.diff(resource.data)
+            .affectedKeys().hasAny(['atendidoPorEmail'])
+          ? request.resource.data.atendidoPorEmail is string
+          : true)
+        && request.resource.data.atualizacoes[
+          request.resource.data.atualizacoes.size() - 1
+        ].keys().hasAll(['status', 'mensagem', 'ongId', 'ongEmail', 'criadoEm'])
+        && request.resource.data.atualizacoes[
+          request.resource.data.atualizacoes.size() - 1
+        ].keys().hasOnly(['status', 'mensagem', 'ongId', 'ongEmail', 'criadoEm'])
+        && request.resource.data.atualizacoes[
+          request.resource.data.atualizacoes.size() - 1
+        ].status == request.resource.data.status
+        && request.resource.data.atualizacoes[
+          request.resource.data.atualizacoes.size() - 1
+        ].mensagem == request.resource.data.ultimaAtualizacao
+        && request.resource.data.atualizacoes[
+          request.resource.data.atualizacoes.size() - 1
+        ].ongId == request.auth.uid
+        && request.resource.data.atualizacoes[
+          request.resource.data.atualizacoes.size() - 1
+        ].ongEmail is string
+        && request.resource.data.atualizacoes[
+          request.resource.data.atualizacoes.size() - 1
+        ].criadoEm is timestamp;
+
+      allow get, list: if request.auth != null
+        && (resource.data.usuarioId == request.auth.uid
+          || isOng());
+    }
+  }
+}

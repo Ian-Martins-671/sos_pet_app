@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "709009880547",
+    "project_id": "sospet-2ff3c",
+    "storage_bucket": "sospet-2ff3c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:709009880547:android:bf4457c37e0a2b5dfc1cd6",
+        "android_client_info": {
+          "package_name": "com.example.sos_pet"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAJblpVLuY22za5W_OValRi8c9AKLBcIeI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
