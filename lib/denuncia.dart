@@ -9,6 +9,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sos_pet/avaliacao_dialog.dart';
 
 // Tela de formulário completo para registro de denúncia de animais abandonados ou em risco
 class DenunciaScreen extends StatefulWidget {
@@ -335,7 +337,12 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
             'denuncias/${usuario.uid}/${DateTime.now().millisecondsSinceEpoch}.jpg',
           );
 
-          final snapshot = await referencia.putData(bytes);
+          final snapshot = await referencia.putData(
+            bytes,
+            SettableMetadata(
+              contentType: _imagemSelecionada!.mimeType ?? 'image/jpeg',
+            ),
+          );
           urlFoto = await snapshot.ref.getDownloadURL();
         } on FirebaseException catch (e) {
           debugPrint(
@@ -381,32 +388,64 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
 
       debugPrint('Denúncia salva com ID ${resultado.id}');
 
-      // 6. Só mostra sucesso se a gravação terminar sem erro.
       if (!mounted) return;
 
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.green),
-              SizedBox(width: 8),
-              Expanded(child: Text('Denúncia registrada!')),
+      final chaveAvaliacao = 'avaliacao_app_apresentada_${usuario.uid}';
+      var exibirAvaliacao = false;
+      try {
+        final preferencias = await SharedPreferences.getInstance();
+        exibirAvaliacao = !(preferencias.getBool(chaveAvaliacao) ?? false);
+        if (exibirAvaliacao) {
+          await preferencias.setBool(chaveAvaliacao, true);
+        }
+      } catch (e) {
+        debugPrint('Não foi possível registrar a exibição da avaliação: $e');
+        exibirAvaliacao = true;
+      }
+
+      if (!mounted) return;
+
+      if (exibirAvaliacao) {
+        final nomeUsuario = usuario.displayName?.trim();
+        final nomeFallback = usuario.email?.split('@').first;
+        await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => AvaliacaoDialog(
+            usuarioId: usuario.uid,
+            nome: nomeUsuario?.isNotEmpty == true
+                ? nomeUsuario!
+                : nomeFallback ?? 'Usuário SOS Pet',
+            email: usuario.email ?? '',
+            denunciaId: resultado.id,
+          ),
+        );
+      } else {
+        await showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green),
+                SizedBox(width: 8),
+                Expanded(child: Text('Denúncia registrada!')),
+              ],
+            ),
+            content: const Text('Sua denúncia foi registrada com sucesso.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK'),
+              ),
             ],
           ),
-          content: const Text('Sua denúncia foi registrada com sucesso. '),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                Navigator.pop(context);
-              },
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
+        );
+      }
+
+      if (mounted) {
+        Navigator.pop(context);
+      }
     } on FirebaseException catch (e) {
       debugPrint('Erro Firebase: ${e.code} - ${e.message}');
 

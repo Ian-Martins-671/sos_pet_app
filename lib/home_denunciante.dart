@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sos_pet/denuncia.dart';
 import 'package:sos_pet/mapa.dart';
+import 'package:sos_pet/user_profile.dart';
 
 // Tela principal exclusiva para o usuário Denunciante (focada em registrar e acompanhar seus próprios chamados)
 class HomeDenuncianteScreen extends StatefulWidget {
@@ -96,8 +95,13 @@ class _HomeDenuncianteScreenState extends State<HomeDenuncianteScreen> {
                     foregroundColor: Colors.white,
                     child: Icon(Icons.camera_alt),
                   ),
-                  title: const Text('Tirar foto com a Câmera', style: TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: const Text('Fotografar o animal ou veículo no momento'),
+                  title: const Text(
+                    'Tirar foto com a Câmera',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: const Text(
+                    'Fotografar o animal ou veículo no momento',
+                  ),
                   onTap: () async {
                     Navigator.pop(ctx);
                     await _capturarFotoEIrParaDenuncia(ImageSource.camera);
@@ -112,7 +116,10 @@ class _HomeDenuncianteScreenState extends State<HomeDenuncianteScreen> {
                     foregroundColor: Colors.white,
                     child: Icon(Icons.photo_library),
                   ),
-                  title: const Text('Escolher da Galeria', style: TextStyle(fontWeight: FontWeight.bold)),
+                  title: const Text(
+                    'Escolher da Galeria',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   subtitle: const Text('Selecionar foto salva no seu celular'),
                   onTap: () async {
                     Navigator.pop(ctx);
@@ -129,7 +136,9 @@ class _HomeDenuncianteScreenState extends State<HomeDenuncianteScreen> {
                     child: const Icon(Icons.edit_note),
                   ),
                   title: const Text('Preencher formulário sem foto'),
-                  subtitle: const Text('A foto é opcional, você pode continuar sem imagem'),
+                  subtitle: const Text(
+                    'A foto é opcional, você pode continuar sem imagem',
+                  ),
                   onTap: () {
                     Navigator.pop(ctx);
                     _abrirTelaDenuncia();
@@ -153,7 +162,9 @@ class _HomeDenuncianteScreenState extends State<HomeDenuncianteScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: const Text('Permissão de câmera negada. Ative-a nas configurações do app.'),
+                content: const Text(
+                  'Permissão de câmera negada. Ative-a nas configurações do app.',
+                ),
                 backgroundColor: Colors.red,
                 action: SnackBarAction(
                   label: 'Configurações',
@@ -188,11 +199,15 @@ class _HomeDenuncianteScreenState extends State<HomeDenuncianteScreen> {
         _abrirTelaDenuncia(fotoInicial: foto);
       }
     } catch (e) {
-      debugPrint('Erro ao acessar ${source == ImageSource.camera ? "câmera" : "galeria"}: $e');
+      debugPrint(
+        'Erro ao acessar ${source == ImageSource.camera ? "câmera" : "galeria"}: $e',
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erro ao abrir ${source == ImageSource.camera ? "câmera" : "galeria"}: $e'),
+            content: Text(
+              'Erro ao abrir ${source == ImageSource.camera ? "câmera" : "galeria"}: $e',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -200,39 +215,15 @@ class _HomeDenuncianteScreenState extends State<HomeDenuncianteScreen> {
     }
   }
 
-  // Essa camada de código é da função de logout: apaga a sessão do Firebase e o perfil salvo localmente
-
-  Future<void> _logout() async {
-  try {
-    debugPrint('Iniciando logout...');
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('perfil_usuario');
-
-    await FirebaseAuth.instance.signOut();
-
-    debugPrint('Logout realizado com sucesso!');
-  } catch (e, stackTrace) {
-    debugPrint('Erro ao fazer logout: $e');
-    debugPrint('$stackTrace');
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao sair da conta: $e'),
-        ),
-      );
-    }
-  }
-}
   // Essa camada de código é da função que abre a tela do Google Maps com solicitação de GPS
   void _abrirTelaMapa() {
-    // Redireciona diretamente para a tela do mapa ativo com suporte a GPS e marcadores
-    Navigator.push(
+    setState(() => _currentIndex = 1);
+  }
+
+  void _abrirPerfil() {
+    Navigator.of(
       context,
-      // Constrói a rota apontando para a MapaScreen
-      MaterialPageRoute(builder: (context) => const MapaScreen()),
-    );
+    ).push(MaterialPageRoute<void>(builder: (_) => const UserProfileScreen()));
   }
 
   @override
@@ -246,229 +237,270 @@ class _HomeDenuncianteScreenState extends State<HomeDenuncianteScreen> {
         backgroundColor: Colors.white,
         foregroundColor: Colors.purple,
         elevation: 1,
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.pets, color: Colors.purple),
-            SizedBox(width: 8),
+            const Icon(Icons.pets, color: Colors.purple),
+            const SizedBox(width: 8),
             Text(
-              'SOS Pet',
-              style: TextStyle(fontWeight: FontWeight.bold),
+              _currentIndex == 1 ? 'Mapa de Casos' : 'SOS Pet',
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ],
         ),
         actions: [
-          // Essa camada de código é do botão de notificações do denunciante
           IconButton(
-            icon: const Icon(Icons.notifications_none, color: Colors.purple),
-            tooltip: 'Notificações',
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Você não possui novas notificações no momento.')),
-              );
-            },
-          ),
-          // Essa camada de código é do botão de Sair (Logout) — apaga sessão e perfil salvo
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.purple),
-            tooltip: 'Sair',
-            onPressed: _logout,
+            icon: const Icon(Icons.menu),
+            tooltip: 'Perfil e opções',
+            onPressed: _abrirPerfil,
           ),
         ],
       ),
 
       // Corpo da tela contendo as ações e o histórico exclusivo do denunciante
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Banner de boas-vindas acolhedor para o Denunciante
-            Container(
-              padding: const EdgeInsets.all(20.0),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Colors.purple, Colors.deepPurple],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.purple.withValues(alpha: 0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
+      body: _currentIndex == 1
+          ? const MapaScreen(embedded: true)
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
-                    'Presenciou um animal em perigo?',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Envie fotos e a localização para acionar as ONGs e clínicas parceiras de resgate.',
-                    style: TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Essa camada de código é do botão de ação rápida no banner com opções para Câmera, Galeria ou Formulário
-                  ElevatedButton.icon(
-                    onPressed: _menuOpcoesFoto,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.purple,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                  // Banner de boas-vindas acolhedor para o Denunciante
+                  Container(
+                    padding: const EdgeInsets.all(20.0),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Colors.purple, Colors.deepPurple],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.purple.withValues(alpha: 0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    icon: const Icon(Icons.add_a_photo, color: Colors.purple),
-                    label: const Text(
-                      'Fazer Nova Denúncia',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Título da seção de acompanhamento pessoal (RF03 e diagrama de casos de uso)
-            const Text(
-              'Minhas Denúncias Enviadas',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Acompanhe o andamento dos resgates que você solicitou:',
-              style: TextStyle(fontSize: 13, color: Colors.black54),
-            ),
-            const SizedBox(height: 12),
-
-            // Card exibindo uma denúncia pessoal realizada por este usuário
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              color: Colors.white,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.blue),
+                        const Text(
+                          'Presenciou um animal em perigo?',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
                           ),
-                          child: const Text(
-                            'Em Atendimento',
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Envie fotos e a localização para acionar as ONGs e clínicas parceiras de resgate.',
+                          style: TextStyle(color: Colors.white70, fontSize: 14),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Essa camada de código é do botão de ação rápida no banner com opções para Câmera, Galeria ou Formulário
+                        ElevatedButton.icon(
+                          onPressed: _menuOpcoesFoto,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: Colors.purple,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          icon: const Icon(
+                            Icons.add_a_photo,
+                            color: Colors.purple,
+                          ),
+                          label: const Text(
+                            'Fazer Nova Denúncia',
                             style: TextStyle(
-                              color: Colors.blue,
                               fontWeight: FontWeight.bold,
-                              fontSize: 12,
+                              fontSize: 15,
                             ),
                           ),
                         ),
-                        const Text(
-                          'Hoje às 14:30',
-                          style: TextStyle(color: Colors.grey, fontSize: 12),
-                        ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Cão com pata machucada próximo à praça',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Título da seção de acompanhamento pessoal (RF03 e diagrama de casos de uso)
+                  const Text(
+                    'Minhas Denúncias Enviadas',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Acompanhe o andamento dos resgates que você solicitou:',
+                    style: TextStyle(fontSize: 13, color: Colors.black54),
+                  ),
+                  const SizedBox(height: 12),
+
+                  Card(
+                    color: Colors.amber.shade50,
+                    child: const ListTile(
+                      leading: Icon(
+                        Icons.info_outline,
+                        color: Colors.deepOrange,
+                      ),
+                      title: Text('Exemplo de demonstração'),
+                      subtitle: Text(
+                        'A denúncia abaixo é apenas um exemplo para demonstrar '
+                        'como o acompanhamento pode aparecer após um envio.',
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    const Row(
-                      children: [
-                        Icon(Icons.location_on, size: 16, color: Colors.purple),
-                        SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            'Rua das Palmeiras, 450 - Centro',
-                            style: TextStyle(color: Colors.black54, fontSize: 13),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Card exibindo uma denúncia pessoal realizada por este usuário
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    const Divider(height: 24),
-                    const Row(
-                      children: [
-                        Icon(Icons.check_circle_outline, size: 18, color: Colors.green),
-                        SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            'Equipe "Patas Amigas" a caminho do local.',
-                            style: TextStyle(color: Colors.black87, fontSize: 13, fontWeight: FontWeight.w500),
+                    color: Colors.white,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.blue),
+                                ),
+                                child: const Text(
+                                  'Em Atendimento',
+                                  style: TextStyle(
+                                    color: Colors.blue,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                              const Text(
+                                'Hoje às 14:30',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Cão com pata machucada próximo à praça',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Row(
+                            children: [
+                              Icon(
+                                Icons.location_on,
+                                size: 16,
+                                color: Colors.purple,
+                              ),
+                              SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  'Rua das Palmeiras, 450 - Centro',
+                                  style: TextStyle(
+                                    color: Colors.black54,
+                                    fontSize: 13,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 24),
+                          const Row(
+                            children: [
+                              Icon(
+                                Icons.check_circle_outline,
+                                size: 18,
+                                color: Colors.green,
+                              ),
+                              SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  'Equipe "Patas amigas" a caminho do local.',
+                                  style: TextStyle(
+                                    color: Colors.black87,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Seção informativa de como funciona o processo de resgate
+                  const Text(
+                    'Como funciona o SOS Pet?',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  _buildPassoResgate(
+                    numero: '1',
+                    titulo: 'Você denuncia',
+                    descricao: 'Registra fotos e o local exato onde o animal foi visto.',
+                    icone: Icons.camera_alt,
+                  ),
+                  _buildPassoResgate(
+                    numero: '2',
+                    titulo: 'ONGs são alertadas',
+                    descricao: 'Equipes parceiras e voluntários recebem o chamado em tempo real.',
+                    icone: Icons.notifications_active,
+                  ),
+                  _buildPassoResgate(
+                    numero: '3',
+                    titulo: 'Animal resgatado',
+                    descricao: 'O pet recebe cuidados veterinários e você acompanha o desfecho.',
+                    icone: Icons.favorite,
+                  ),
+
+                  const SizedBox(
+                    height: 60,
+                  ), // Espaço para não cobrir com a barra inferior
+                ],
               ),
             ),
-
-            const SizedBox(height: 24),
-
-            // Seção informativa de como funciona o processo de resgate
-            const Text(
-              'Como funciona o SOS Pet?',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            _buildPassoResgate(
-              numero: '1',
-              titulo: 'Você denuncia',
-              descricao: 'Registra fotos e o local exato onde o animal foi visto.',
-              icone: Icons.camera_alt,
-            ),
-            _buildPassoResgate(
-              numero: '2',
-              titulo: 'ONGs são alertadas',
-              descricao: 'Equipes parceiras e voluntários recebem o chamado em tempo real.',
-              icone: Icons.notifications_active,
-            ),
-            _buildPassoResgate(
-              numero: '3',
-              titulo: 'Animal resgatado',
-              descricao: 'O pet recebe cuidados veterinários e você acompanha o desfecho.',
-              icone: Icons.favorite,
-            ),
-
-            const SizedBox(height: 60), // Espaço para não cobrir com a barra inferior
-          ],
-        ),
-      ),
 
       // Essa camada de código é do botão central em vermelho de "Denúncia" (redondo e proporcional)
       floatingActionButton: FloatingActionButton(
@@ -494,66 +526,22 @@ class _HomeDenuncianteScreenState extends State<HomeDenuncianteScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Lado esquerdo da barra inferior
-              Row(
-                children: [
-                  // Essa camada de código é do botão Início (Home)
-                  IconButton(
-                    icon: Icon(
-                      Icons.home,
-                      color: _currentIndex == 0 ? Colors.purple : Colors.grey,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _currentIndex = 0;
-                      });
-                    },
-                    tooltip: 'Início',
-                  ),
-
-                  // Essa camada de código é do botão Maps (abre a tela do Google Maps com GPS e pontos de apoio)
-                  IconButton(
-                    icon: const Icon(
-                      Icons.map,
-                      color: Colors.purple,
-                    ),
-                    onPressed: _abrirTelaMapa,
-                    tooltip: 'Abrir Mapa',
-                  ),
-                ],
+              IconButton(
+                icon: Icon(
+                  Icons.home,
+                  color: _currentIndex == 0 ? Colors.purple : Colors.grey,
+                ),
+                onPressed: () => setState(() => _currentIndex = 0),
+                tooltip: 'Início',
               ),
-
-              // Lado direito da barra inferior
-              Row(
-                children: [
-                  // Essa camada de código é do botão de Acompanhamento das Minhas Denúncias
-                  IconButton(
-                    icon: Icon(
-                      Icons.assignment,
-                      color: _currentIndex == 2 ? Colors.purple : Colors.grey,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _currentIndex = 2;
-                      });
-                    },
-                    tooltip: 'Minhas Denúncias',
-                  ),
-
-                  // Essa camada de código é do botão Perfil do usuário
-                  IconButton(
-                    icon: Icon(
-                      Icons.person,
-                      color: _currentIndex == 3 ? Colors.purple : Colors.grey,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _currentIndex = 3;
-                      });
-                    },
-                    tooltip: 'Perfil',
-                  ),
-                ],
+              const SizedBox(width: 48),
+              IconButton(
+                icon: Icon(
+                  Icons.map,
+                  color: _currentIndex == 1 ? Colors.purple : Colors.grey,
+                ),
+                onPressed: _abrirTelaMapa,
+                tooltip: 'Abrir Mapa',
               ),
             ],
           ),
@@ -592,4 +580,3 @@ class _HomeDenuncianteScreenState extends State<HomeDenuncianteScreen> {
     );
   }
 }
-

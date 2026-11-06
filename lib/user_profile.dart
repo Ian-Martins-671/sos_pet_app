@@ -1,6 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 String userSetupPendingKey(String uid) => 'configuracao_inicial_pendente_$uid';
 
@@ -76,23 +79,116 @@ class UserProfileScreen extends StatefulWidget {
 }
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
-  late Future<void> _profileFuture;
+  final ImagePicker _imagePicker = ImagePicker();
+  late final Future<DocumentSnapshot<Map<String, dynamic>>> _profileDocument;
+  String? _photoUrl;
+  bool _uploadingPhoto = false;
 
   @override
   void initState() {
     super.initState();
-    _profileFuture = saveUserProfile(FirebaseAuth.instance.currentUser!);
+    final user = FirebaseAuth.instance.currentUser!;
+    _profileDocument = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
   }
 
-  Future<void> _openPersonalData() async {
-    await Navigator.of(
+  Future<void> _changeProfilePhoto() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera),
+              title: const Text('Tirar foto'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Escolher da galeria'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+
+    try {
+      final image = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        imageQuality: 85,
+      );
+      if (image == null) return;
+      if (!mounted) return;
+
+      setState(() => _uploadingPhoto = true);
+      final user = FirebaseAuth.instance.currentUser!;
+      final bytes = await image.readAsBytes();
+      final reference = FirebaseStorage.instance.ref().child(
+        'profile_images/${user.uid}/profile',
+      );
+      await reference.putData(
+        bytes,
+        SettableMetadata(contentType: image.mimeType ?? 'image/jpeg'),
+      );
+      final url = await reference.getDownloadURL();
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'fotoPerfil': url,
+      }, SetOptions(merge: true));
+
+      if (mounted) {
+        setState(() => _photoUrl = url);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Foto de perfil atualizada.')),
+        );
+      }
+    } on FirebaseException catch (error) {
+      debugPrint(
+        'Erro Firebase ao atualizar foto de perfil: '
+        '${error.code} - ${error.message}',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Não foi possível salvar a foto: '
+              '${error.message ?? error.code}',
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      debugPrint('Erro ao atualizar foto de perfil: $error');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Não foi possível atualizar a foto.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
+    }
+  }
+
+  void _openPersonalData() {
+    Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => const PersonalDataScreen()));
-    if (mounted) {
-      setState(() {
-        _profileFuture = saveUserProfile(FirebaseAuth.instance.currentUser!);
-      });
-    }
+  }
+
+  void _openMyReports() {
+    Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => const MyReportsScreen()));
+  }
+
+  void _openNotifications() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const NotificationsScreen()),
+    );
   }
 
   void _openCredentials() {
@@ -101,81 +197,274 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     ).push(MaterialPageRoute<void>(builder: (_) => const CredentialsScreen()));
   }
 
+  Future<void> _confirmLogout() async {
+    final sair = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sair da conta?'),
+        content: const Text('Tem certeza de que deseja sair da sua conta?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Sair'),
+          ),
+        ],
+      ),
+    );
+    if (sair != true) return;
+
+    try {
+      final preferencias = await SharedPreferences.getInstance();
+      await preferencias.remove('perfil_usuario');
+      await FirebaseAuth.instance.signOut();
+    } catch (error) {
+      debugPrint('Erro ao sair da conta: $error');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Não foi possível sair da conta.')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser!;
-    final telefoneVerificado = user.phoneNumber != null;
 
-    return FutureBuilder<void>(
-      future: _profileFuture,
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(
-                'Não foi possível carregar seus dados: ${snapshot.error}',
-                textAlign: TextAlign.center,
-              ),
-            ),
-          );
-        }
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            CircleAvatar(
-              radius: 38,
-              backgroundColor: Colors.purple.shade100,
-              child: const Icon(Icons.person, size: 42, color: Colors.purple),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              user.displayName ?? user.email ?? 'Usuário SOS Pet',
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            if (user.email != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                user.email!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.black54),
-              ),
-            ],
-            const SizedBox(height: 24),
-            Card(
-              child: ListTile(
-                leading: Icon(
-                  telefoneVerificado ? Icons.verified : Icons.pending_actions,
-                  color: telefoneVerificado ? Colors.green : Colors.orange,
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Meu perfil'),
+        foregroundColor: Colors.purple,
+      ),
+      body: FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+        future: _profileDocument,
+        builder: (context, snapshot) {
+          final storedPhoto = snapshot.data?.data()?['fotoPerfil'] as String?;
+          final photoUrl = _photoUrl ?? storedPhoto ?? user.photoURL;
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Center(
+                child: Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 56,
+                      backgroundColor: Colors.purple.shade100,
+                      backgroundImage: photoUrl == null
+                          ? null
+                          : NetworkImage(photoUrl),
+                      child: photoUrl == null
+                          ? const Icon(
+                              Icons.person,
+                              size: 58,
+                              color: Colors.purple,
+                            )
+                          : null,
+                    ),
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: IconButton.filled(
+                        onPressed: _uploadingPhoto ? null : _changeProfilePhoto,
+                        tooltip: 'Adicionar foto de perfil',
+                        icon: _uploadingPhoto
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.camera_alt),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.person_outline, color: Colors.purple),
-                title: const Text('Dados pessoais'),
-                subtitle: const Text('Telefone e confirmação por SMS'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: _openPersonalData,
+              const SizedBox(height: 12),
+              Text(
+                user.displayName ?? user.email ?? 'Usuário SOS Pet',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.key, color: Colors.purple),
-                title: const Text('Credenciais'),
-                subtitle: const Text('E-mail e forma de acesso'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: _openCredentials,
+              if (user.email != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  user.email!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.black54),
+                ),
+              ],
+              if (snapshot.hasError)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: Text(
+                    'Não foi possível carregar a foto salva.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ),
+              const SizedBox(height: 24),
+              Card(
+                child: ListTile(
+                  leading: const Icon(
+                    Icons.assignment_outlined,
+                    color: Colors.purple,
+                  ),
+                  title: const Text('Minhas denúncias'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _openMyReports,
+                ),
               ),
-            ),
-          ],
-        );
-      },
+              Card(
+                child: ListTile(
+                  leading: const Icon(
+                    Icons.notifications_none,
+                    color: Colors.purple,
+                  ),
+                  title: const Text('Notificações'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _openNotifications,
+                ),
+              ),
+              Card(
+                child: ListTile(
+                  leading: const Icon(
+                    Icons.person_outline,
+                    color: Colors.purple,
+                  ),
+                  title: const Text('Dados pessoais'),
+                  subtitle: const Text('Adicionar número de telefone'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _openPersonalData,
+                ),
+              ),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.key, color: Colors.purple),
+                  title: const Text('Credenciais'),
+                  subtitle: const Text('E-mail e forma de acesso'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _openCredentials,
+                ),
+              ),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: _confirmLogout,
+                icon: const Icon(Icons.logout),
+                label: const Text('Sair da conta'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.red.shade700,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class MyReportsScreen extends StatelessWidget {
+  const MyReportsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser!;
+    final reports = FirebaseFirestore.instance
+        .collection('denuncias')
+        .where('usuarioId', isEqualTo: user.uid);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Minhas denúncias'),
+        foregroundColor: Colors.purple,
+      ),
+      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: reports.snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return const Center(
+              child: Text('Não foi possível carregar suas denúncias.'),
+            );
+          }
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final documents = [...?snapshot.data?.docs]
+            ..sort((a, b) {
+              final aDate = a.data()['criadoEm'];
+              final bDate = b.data()['criadoEm'];
+              if (aDate is! Timestamp || bDate is! Timestamp) return 0;
+              return bDate.compareTo(aDate);
+            });
+          if (documents.isEmpty) {
+            return const Center(child: Text('Você ainda não fez denúncias.'));
+          }
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: documents.length,
+            itemBuilder: (context, index) {
+              final report = documents[index].data();
+              return Card(
+                child: ListTile(
+                  leading: const Icon(Icons.pets, color: Colors.purple),
+                  title: Text(
+                    (report['descricao'] as String?)?.trim().isNotEmpty == true
+                        ? report['descricao'] as String
+                        : (report['tipo'] as String? ?? 'Denúncia'),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    '${report['status'] ?? 'Status indisponível'}'
+                    ' • ${report['endereco'] ?? 'Local não informado'}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class NotificationsScreen extends StatelessWidget {
+  const NotificationsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Notificações'),
+        foregroundColor: Colors.purple,
+      ),
+      body: const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.notifications_none, size: 56, color: Colors.purple),
+              SizedBox(height: 12),
+              Text('Você não possui novas notificações no momento.'),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -202,7 +491,6 @@ class _PersonalDataScreenState extends State<PersonalDataScreen> {
 
   Future<void> _loadPhone() async {
     try {
-      await saveUserProfile(_user);
       final document = await FirebaseFirestore.instance
           .collection('users')
           .doc(_user.uid)
@@ -216,7 +504,7 @@ class _PersonalDataScreenState extends State<PersonalDataScreen> {
     }
   }
 
-  Future<void> _sendVerificationCode() async {
+  Future<void> _savePhoneNumber() async {
     final phoneNumber = normalizePhoneNumber(_phoneController.text);
     if (phoneNumber == null) {
       _showMessage('Informe um telefone válido com código do país.');
@@ -225,109 +513,29 @@ class _PersonalDataScreenState extends State<PersonalDataScreen> {
 
     setState(() => _carregando = true);
     try {
-      await FirebaseAuth.instance.verifyPhoneNumber(
-        phoneNumber: phoneNumber,
-        verificationCompleted: (credential) {
-          _linkVerifiedPhone(credential, phoneNumber);
-        },
-        verificationFailed: (error) {
-          if (mounted) {
-            _showMessage(_phoneErrorMessage(error));
-            setState(() => _carregando = false);
-          }
-        },
-        codeSent: (verificationId, _) {
-          _askForSmsCode(verificationId, phoneNumber);
-        },
-        codeAutoRetrievalTimeout: (_) {},
-      );
-    } on FirebaseAuthException catch (error) {
-      _showMessage(_phoneErrorMessage(error));
-    } catch (error) {
-      debugPrint('Erro ao enviar código SMS: $error');
-      _showMessage('Não foi possível enviar o código. Tente novamente.');
-    } finally {
-      if (mounted) setState(() => _carregando = false);
-    }
-  }
-
-  Future<void> _askForSmsCode(String verificationId, String phoneNumber) async {
-    final codeController = TextEditingController();
-    final code = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Confirme seu telefone'),
-        content: TextField(
-          controller: codeController,
-          keyboardType: TextInputType.number,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: 'Código recebido por SMS',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () =>
-                Navigator.pop(dialogContext, codeController.text.trim()),
-            child: const Text('Confirmar'),
-          ),
-        ],
-      ),
-    );
-    codeController.dispose();
-    if (code == null || code.isEmpty || !mounted) return;
-
-    try {
-      final credential = PhoneAuthProvider.credential(
-        verificationId: verificationId,
-        smsCode: code,
-      );
-      await _linkVerifiedPhone(credential, phoneNumber);
-    } on FirebaseAuthException catch (error) {
-      _showMessage(_phoneErrorMessage(error));
-    } catch (error) {
-      debugPrint('Erro ao confirmar telefone: $error');
-      _showMessage('Não foi possível confirmar o telefone. Tente novamente.');
-    }
-  }
-
-  Future<void> _linkVerifiedPhone(
-    PhoneAuthCredential credential,
-    String phoneNumber,
-  ) async {
-    try {
-      await _user.updatePhoneNumber(credential);
-      await _user.reload();
       await saveUserProfile(_user, phoneNumber: phoneNumber);
       if (mounted) {
         _phoneController.text = phoneNumber;
-        setState(() {});
-        _showMessage('Telefone confirmado com sucesso.');
+        _showMessage('Telefone salvo nos dados da sua conta.');
       }
-    } on FirebaseAuthException catch (error) {
-      if (mounted) _showMessage(_phoneErrorMessage(error));
+    } on FirebaseException catch (error) {
+      debugPrint(
+        'Erro Firebase ao salvar telefone: ${error.code} - ${error.message}',
+      );
+      if (mounted) {
+        _showMessage(
+          'Não foi possível salvar o telefone: '
+          '${error.message ?? error.code}',
+        );
+      }
     } catch (error) {
-      debugPrint('Erro ao salvar telefone confirmado: $error');
-      if (mounted) _showMessage('Não foi possível salvar o telefone.');
+      debugPrint('Erro ao salvar telefone: $error');
+      if (mounted) {
+        _showMessage('Não foi possível salvar o telefone. Tente novamente.');
+      }
+    } finally {
+      if (mounted) setState(() => _carregando = false);
     }
-  }
-
-  String _phoneErrorMessage(FirebaseAuthException error) {
-    return switch (error.code) {
-      'invalid-phone-number' => 'O número de telefone é inválido.',
-      'invalid-verification-code' => 'O código SMS informado está incorreto.',
-      'session-expired' => 'O código expirou. Solicite um novo código.',
-      'too-many-requests' => 'Muitas tentativas. Tente novamente mais tarde.',
-      'credential-already-in-use' =>
-        'Este telefone já está vinculado a outra conta.',
-      'provider-already-linked' => 'Este telefone já foi confirmado.',
-      _ =>
-        'Não foi possível confirmar o telefone: ${error.message ?? error.code}',
-    };
   }
 
   void _showMessage(String message) {
@@ -344,7 +552,6 @@ class _PersonalDataScreenState extends State<PersonalDataScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final verified = _user.phoneNumber != null;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dados pessoais'),
@@ -364,12 +571,27 @@ class _PersonalDataScreenState extends State<PersonalDataScreen> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: _phoneController,
+                  enabled: !_carregando,
                   keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(
                     labelText: 'Telefone/celular',
                     hintText: '+55 11 99999-9999',
                     prefixIcon: Icon(Icons.phone, color: Colors.purple),
                     border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: _carregando ? null : _savePhoneNumber,
+                  icon: _carregando
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.save_outlined),
+                  label: Text(
+                    _carregando ? 'Salvando telefone...' : 'Salvar telefone',
                   ),
                 ),
               ],

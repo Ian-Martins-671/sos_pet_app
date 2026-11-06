@@ -19,6 +19,7 @@ service cloud.firestore {
           'uid',
           'email',
           'telefone',
+          'fotoPerfil',
           'perfil',
           'configuracaoInicialPendente',
           'cnpj'
@@ -27,6 +28,8 @@ service cloud.firestore {
         && request.resource.data.email is string
         && (!('telefone' in request.resource.data.keys())
           || request.resource.data.telefone is string)
+        && (!('fotoPerfil' in request.resource.data.keys())
+          || request.resource.data.fotoPerfil is string)
         && (!('perfil' in request.resource.data.keys())
           || request.resource.data.perfil in ['Denunciante', 'Ong/Clinica'])
         && (!('configuracaoInicialPendente' in request.resource.data.keys())
@@ -193,6 +196,44 @@ service cloud.firestore {
       allow get, list: if request.auth != null
         && (resource.data.usuarioId == request.auth.uid
           || isOng());
+    }
+
+    match /avaliacoes/{avaliacaoId} {
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasAll([
+          'usuarioId',
+          'nome',
+          'email',
+          'denunciaId',
+          'nota',
+          'comentario',
+          'tipo',
+          'criadoEm'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'usuarioId',
+          'nome',
+          'email',
+          'denunciaId',
+          'nota',
+          'comentario',
+          'tipo',
+          'criadoEm'
+        ])
+        && request.resource.data.usuarioId == request.auth.uid
+        && request.resource.data.nome is string
+        && request.resource.data.nome.size() > 0
+        && request.resource.data.email is string
+        && request.resource.data.denunciaId is string
+        && get(/databases/$(database)/documents/denuncias/$(request.resource.data.denunciaId))
+          .data.usuarioId == request.auth.uid
+        && request.resource.data.nota is int
+        && request.resource.data.nota >= 1
+        && request.resource.data.nota <= 5
+        && request.resource.data.comentario is string
+        && request.resource.data.comentario.size() <= 500
+        && request.resource.data.tipo == 'aplicativo'
+        && request.resource.data.criadoEm == request.time;
     }
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sos_pet/denuncia.dart';
 import 'package:sos_pet/mapa.dart';
+import 'package:sos_pet/user_profile.dart';
 
 // Tela principal da aplicação gerenciando abas, mapa e feed de denúncias
 class HomeScreen extends StatefulWidget {
@@ -11,7 +12,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // Guarda o índice da aba atualmente selecionada (0: Feed, 1: Mapa, 2: Adoções, 3: Perfil)
+  // Guarda a aba selecionada: início ou mapa.
   int _currentIndex = 0;
 
   // Filtro de status atualmente selecionado no feed
@@ -29,12 +30,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Essa camada de código é da função que abre a tela do Google Maps com GPS e marcadores
   void _abrirTelaMapa() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const MapaScreen()),
-    );
+    setState(() => _currentIndex = 1);
   }
 
+  void _abrirPerfil() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const UserProfileScreen()));
+  }
 
   // Retorna o título da barra superior de acordo com a aba selecionada
   Widget _buildAppBarTitle() {
@@ -44,23 +47,10 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Icon(Icons.map, color: Colors.purple),
             SizedBox(width: 8),
-            Text('Mapa de Casos', style: TextStyle(fontWeight: FontWeight.bold)),
-          ],
-        );
-      case 2:
-        return const Row(
-          children: [
-            Icon(Icons.volunteer_activism, color: Colors.purple),
-            SizedBox(width: 8),
-            Text('Adoção de Pets', style: TextStyle(fontWeight: FontWeight.bold)),
-          ],
-        );
-      case 3:
-        return const Row(
-          children: [
-            Icon(Icons.person, color: Colors.purple),
-            SizedBox(width: 8),
-            Text('Meu Perfil', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text(
+              'Mapa de Casos',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ],
         );
       default:
@@ -78,22 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildBody() {
     switch (_currentIndex) {
       case 1:
-        // Exibe o mapa interativo integrado com os marcadores de denúncias
         return const MapaScreen(embedded: true);
-      case 2:
-        return const Center(
-          child: Text(
-            'Módulo de Adoções em breve...',
-            style: TextStyle(color: Colors.purple, fontSize: 16),
-          ),
-        );
-      case 3:
-        return const Center(
-          child: Text(
-            'Configurações de Perfil',
-            style: TextStyle(color: Colors.purple, fontSize: 16),
-          ),
-        );
       default:
         return _buildFeed();
     }
@@ -126,8 +101,24 @@ class _HomeScreenState extends State<HomeScreen> {
         // ListView exibe a listagem dinâmica de ocorrências de animais abandonados
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: 12.0, bottom: 80.0),
+            padding: const EdgeInsets.only(
+              left: 16.0,
+              right: 16.0,
+              top: 12.0,
+              bottom: 80.0,
+            ),
             children: [
+              Card(
+                color: Colors.amber.shade50,
+                child: const ListTile(
+                  leading: Icon(Icons.info_outline, color: Colors.deepOrange),
+                  title: Text('Exemplos de demonstração'),
+                  subtitle: Text(
+                    'As denúncias e pendências abaixo são apenas exemplos '
+                    'para demonstrar como o feed pode aparecer.',
+                  ),
+                ),
+              ),
               _buildCardExemplo(
                 titulo: 'Cachorro machucado na calçada',
                 local: 'Rua das Flores, 120 - Centro',
@@ -173,12 +164,9 @@ class _HomeScreenState extends State<HomeScreen> {
         title: _buildAppBarTitle(),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.purple),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Atualizando informações...')),
-              );
-            },
+            icon: const Icon(Icons.menu),
+            tooltip: 'Perfil e opções',
+            onPressed: _abrirPerfil,
           ),
         ],
       ),
@@ -210,59 +198,27 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Lado esquerdo da barra inferior
-              Row(
-                children: [
-                  // Essa camada de código é do botão Início (Home)
-                  IconButton(
-                    icon: Icon(
-                      Icons.home,
-                      color: _currentIndex == 0 ? Colors.purple : Colors.grey,
-                    ),
-                    onPressed: () => setState(() => _currentIndex = 0),
-                    tooltip: 'Início',
-                  ),
-
-                  // Essa camada de código é do botão Maps (abre a tela do mapa ativo com localização e marcadores)
-                  IconButton(
-                    icon: Icon(
-                      Icons.map,
-                      color: _currentIndex == 1 ? Colors.purple : Colors.grey,
-                    ),
-                    onPressed: _abrirTelaMapa,
-                    tooltip: 'Mapa de Casos',
-                  ),
-                ],
+              IconButton(
+                icon: Icon(
+                  Icons.home,
+                  color: _currentIndex == 0 ? Colors.purple : Colors.grey,
+                ),
+                onPressed: () => setState(() => _currentIndex = 0),
+                tooltip: 'Início',
               ),
-              // Lado direito da barra inferior
-              Row(
-                children: [
-                  // Essa camada de código é do botão de Adoções
-                  IconButton(
-                    icon: Icon(
-                      Icons.volunteer_activism,
-                      color: _currentIndex == 2 ? Colors.purple : Colors.grey,
-                    ),
-                    onPressed: () => setState(() => _currentIndex = 2),
-                    tooltip: 'Adoções',
-                  ),
-
-                  // Essa camada de código é do botão de Perfil
-                  IconButton(
-                    icon: Icon(
-                      Icons.person,
-                      color: _currentIndex == 3 ? Colors.purple : Colors.grey,
-                    ),
-                    onPressed: () => setState(() => _currentIndex = 3),
-                    tooltip: 'Perfil',
-                  ),
-                ],
+              const SizedBox(width: 48),
+              IconButton(
+                icon: Icon(
+                  Icons.map,
+                  color: _currentIndex == 1 ? Colors.purple : Colors.grey,
+                ),
+                onPressed: _abrirTelaMapa,
+                tooltip: 'Mapa de Casos',
               ),
             ],
           ),
         ),
       ),
-
     );
   }
 
@@ -314,7 +270,10 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 // Tag de status do atendimento da ocorrência
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: statusColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
