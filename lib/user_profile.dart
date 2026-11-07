@@ -221,6 +221,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       final preferencias = await SharedPreferences.getInstance();
       await preferencias.remove('perfil_usuario');
       await FirebaseAuth.instance.signOut();
+
+      // Desempilha todas as telas abertas e redireciona direto para a raiz (AuthGate -> LoginScreen)
+      if (mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
     } catch (error) {
       debugPrint('Erro ao sair da conta: $error');
       if (mounted) {

@@ -8,6 +8,7 @@ import 'package:sos_pet/login.dart';
 import 'package:sos_pet/home_denunciante.dart';
 import 'package:sos_pet/home.dart';
 import 'package:sos_pet/user_profile.dart';
+import 'package:sos_pet/conscientizacao_carousel.dart';
 
 // Ponto de entrada que inicializa a aplicação Flutter
 void main() async {
@@ -48,6 +49,8 @@ class AuthGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Pré-carrega os assets de conscientização na memória assim que o app abre
+    ConscientizacaoCarousel.precacheImagens(context);
     // StreamBuilder ouve o fluxo de autenticação do Firebase automaticamente
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.userChanges(),

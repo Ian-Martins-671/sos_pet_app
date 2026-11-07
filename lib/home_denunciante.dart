@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
@@ -5,6 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:sos_pet/denuncia.dart';
 import 'package:sos_pet/mapa.dart';
 import 'package:sos_pet/user_profile.dart';
+import 'package:sos_pet/conscientizacao_carousel.dart';
 
 // Tela principal exclusiva para o usuário Denunciante (focada em registrar e acompanhar seus próprios chamados)
 class HomeDenuncianteScreen extends StatefulWidget {
@@ -330,6 +333,11 @@ class _HomeDenuncianteScreenState extends State<HomeDenuncianteScreen> {
                     ),
                   ),
 
+                  const SizedBox(height: 20),
+
+                  // Carrossel com fotos e frases de conscientização que passam a cada 3 segundos
+                  const ConscientizacaoCarousel(),
+
                   const SizedBox(height: 24),
 
                   // Título da seção de acompanhamento pessoal (RF03 e diagrama de casos de uso)
@@ -348,120 +356,8 @@ class _HomeDenuncianteScreenState extends State<HomeDenuncianteScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  Card(
-                    color: Colors.amber.shade50,
-                    child: const ListTile(
-                      leading: Icon(
-                        Icons.info_outline,
-                        color: Colors.deepOrange,
-                      ),
-                      title: Text('Exemplo de demonstração'),
-                      subtitle: Text(
-                        'A denúncia abaixo é apenas um exemplo para demonstrar '
-                        'como o acompanhamento pode aparecer após um envio.',
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Card exibindo uma denúncia pessoal realizada por este usuário
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    color: Colors.white,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.blue),
-                                ),
-                                child: const Text(
-                                  'Em Atendimento',
-                                  style: TextStyle(
-                                    color: Colors.blue,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                              const Text(
-                                'Hoje às 14:30',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'Cão com pata machucada próximo à praça',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          const Row(
-                            children: [
-                              Icon(
-                                Icons.location_on,
-                                size: 16,
-                                color: Colors.purple,
-                              ),
-                              SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  'Rua das Palmeiras, 450 - Centro',
-                                  style: TextStyle(
-                                    color: Colors.black54,
-                                    fontSize: 13,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const Divider(height: 24),
-                          const Row(
-                            children: [
-                              Icon(
-                                Icons.check_circle_outline,
-                                size: 18,
-                                color: Colors.green,
-                              ),
-                              SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  'Equipe "Patas amigas" a caminho do local.',
-                                  style: TextStyle(
-                                    color: Colors.black87,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  // StreamBuilder ouvindo as denúncias enviadas pelo usuário em tempo real
+                  _buildMinhasDenuncias(),
 
                   const SizedBox(height: 24),
 
@@ -577,6 +473,232 @@ class _HomeDenuncianteScreenState extends State<HomeDenuncianteScreen> {
           style: const TextStyle(fontSize: 12, color: Colors.black54),
         ),
       ),
+    );
+  }
+
+  String _formatarDataDenuncia(Timestamp? timestamp) {
+    if (timestamp == null) return 'Agora';
+    final data = timestamp.toDate();
+    final diferenca = DateTime.now().difference(data);
+
+    if (diferenca.inMinutes < 1) return 'Agora mesmo';
+    if (diferenca.inMinutes < 60) return 'Há ${diferenca.inMinutes} min';
+    if (diferenca.inHours < 24) return 'Há ${diferenca.inHours} h';
+    return '${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')} às ${data.hour.toString().padLeft(2, '0')}:${data.minute.toString().padLeft(2, '0')}';
+  }
+
+  Color _obterCorStatus(String status) {
+    switch (status.toLowerCase()) {
+      case 'pendente':
+        return Colors.orange;
+      case 'em atendimento':
+      case 'em resgate':
+        return Colors.blue;
+      case 'animal resgatado':
+      case 'resgatado':
+      case 'atendimento finalizado':
+        return Colors.green;
+      default:
+        return Colors.purple;
+    }
+  }
+
+  Widget _buildMinhasDenuncias() {
+    final usuario = FirebaseAuth.instance.currentUser;
+    if (usuario == null) {
+      return const SizedBox.shrink();
+    }
+
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('denuncias')
+          .where('usuarioId', isEqualTo: usuario.uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24.0),
+            child: Center(
+              child: CircularProgressIndicator(color: Colors.purple),
+            ),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Card(
+            color: Colors.red.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Text(
+                'Erro ao carregar denúncias: ${snapshot.error}',
+                style: const TextStyle(color: Colors.red, fontSize: 13),
+              ),
+            ),
+          );
+        }
+
+        final docs = (snapshot.data?.docs ?? []).toList();
+        // Ordena no cliente pelas mais recentes, sem exigir índice composto no Firestore
+        docs.sort((a, b) {
+          final tA = a.data()['criadoEm'] as Timestamp?;
+          final tB = b.data()['criadoEm'] as Timestamp?;
+          if (tA == null && tB == null) return 0;
+          if (tA == null) return 1;
+          if (tB == null) return -1;
+          return tB.compareTo(tA);
+        });
+
+        if (docs.isEmpty) {
+          return Card(
+            elevation: 1,
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.purple),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Você ainda não enviou nenhuma denúncia. Quando enviar, ela aparecerá aqui em tempo real!',
+                      style: TextStyle(color: Colors.black54, fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return Column(
+          children: docs.map((doc) {
+            final data = doc.data();
+            final status = (data['status'] as String?) ?? 'Pendente';
+            final corStatus = _obterCorStatus(status);
+            final especie = (data['especie'] as String?) ?? 'Animal';
+            final condicao = (data['condicaoAnimal'] as String?) ?? '';
+            final endereco = (data['endereco'] as String?) ?? 'Endereço não informado';
+            final ultimaAtualizacao = (data['ultimaAtualizacao'] as String?) ?? 'Aguardando atendimento.';
+            final criadoEm = data['criadoEm'] as Timestamp?;
+            final fotoUrl = data['fotoUrl'] as String?;
+
+            return Card(
+              elevation: 2,
+              margin: const EdgeInsets.only(bottom: 12.0),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              color: Colors.white,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: corStatus.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: corStatus),
+                          ),
+                          child: Text(
+                            status,
+                            style: TextStyle(
+                              color: corStatus,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          _formatarDataDenuncia(criadoEm),
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (fotoUrl != null && fotoUrl.isNotEmpty) ...[
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          fotoUrl,
+                          height: 140,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                    Text(
+                      '$especie ${condicao.isNotEmpty ? "• $condicao" : ""}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.location_on,
+                          size: 16,
+                          color: Colors.purple,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            endereco,
+                            style: const TextStyle(
+                              color: Colors.black54,
+                              fontSize: 13,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 24),
+                    Row(
+                      children: [
+                        Icon(
+                          status == 'Pendente' ? Icons.hourglass_empty : Icons.check_circle_outline,
+                          size: 18,
+                          color: corStatus,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            ultimaAtualizacao,
+                            style: const TextStyle(
+                              color: Colors.black87,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        );
+      },
     );
   }
 }
