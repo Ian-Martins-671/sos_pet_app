@@ -241,7 +241,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final user = FirebaseAuth.instance.currentUser!;
 
     return Scaffold(
+      backgroundColor: const Color.fromARGB(255, 255, 202, 248),
       appBar: AppBar(
+        backgroundColor: const Color.fromARGB(255, 255, 202, 248),
         title: const Text('Meu perfil'),
         foregroundColor: Colors.purple,
       ),

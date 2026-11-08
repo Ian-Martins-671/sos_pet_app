@@ -233,11 +233,11 @@ class _HomeDenuncianteScreenState extends State<HomeDenuncianteScreen> {
   Widget build(BuildContext context) {
     // Scaffold fornece a estrutura básica de layout visual (fundo, barras, botão flutuante)
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: const Color.fromARGB(255, 255, 202, 248), 
 
       // Barra superior com a identidade visual do SOS Pet
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color.fromARGB(255, 255, 202, 248),
         foregroundColor: Colors.purple,
         elevation: 1,
         title: Row(
@@ -406,7 +406,7 @@ class _HomeDenuncianteScreenState extends State<HomeDenuncianteScreen> {
         elevation: 4,
         shape: const CircleBorder(),
         tooltip: 'Fazer Denúncia',
-        child: const Icon(Icons.campaign, size: 28),
+        child: const Icon(Icons.campaign, size: 38),
       ),
       // Posiciona o botão de denúncia centralizado na barra inferior
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
@@ -414,9 +414,10 @@ class _HomeDenuncianteScreenState extends State<HomeDenuncianteScreen> {
       // Barra inferior com recorte suave para acomodar o botão flutuante central
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
-        notchMargin: 6.0,
-        color: Colors.white,
+        notchMargin: 8.0,
+        color: const Color.fromARGB(255, 255, 202, 248),
         elevation: 8,
+        padding: const EdgeInsets.symmetric(horizontal: 40.0),
         child: SizedBox(
           height: 60,
           child: Row(
@@ -425,15 +426,18 @@ class _HomeDenuncianteScreenState extends State<HomeDenuncianteScreen> {
               IconButton(
                 icon: Icon(
                   Icons.home,
+                  size: 38,
                   color: _currentIndex == 0 ? Colors.purple : Colors.grey,
                 ),
                 onPressed: () => setState(() => _currentIndex = 0),
                 tooltip: 'Início',
               ),
-              const SizedBox(width: 48),
+              // Espaço central reservado para o botão de denúncia flutuante
+              const SizedBox(width: 56),
               IconButton(
                 icon: Icon(
                   Icons.map,
+                  size: 38,
                   color: _currentIndex == 1 ? Colors.purple : Colors.grey,
                 ),
                 onPressed: _abrirTelaMapa,

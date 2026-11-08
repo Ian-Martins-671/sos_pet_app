@@ -487,7 +487,7 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
   Widget build(BuildContext context) {
     // Scaffold fornece a estrutura básica de layout visual (fundo, barras, gavetas)
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: const Color.fromARGB(255, 255, 202, 248),
 
       // Barra superior com o título da tela
       appBar: AppBar(
@@ -495,7 +495,7 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
           'Registrar Denúncia',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: const Color.fromARGB(255, 255, 202, 248),
         foregroundColor: Colors.purple,
         elevation: 1,
         // Essa camada de código é do botão de voltar para a tela anterior

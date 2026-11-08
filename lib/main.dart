@@ -34,6 +34,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         // Define a paleta roxa do aplicativo e adota os padrões visuais do Material 3
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.purple),
+        scaffoldBackgroundColor: const Color.fromARGB(255, 255, 202, 248),
         useMaterial3: true,
       ),
       // Essa camada de código é do AuthGate: controla para onde o app vai ao abrir.
@@ -60,7 +61,7 @@ class AuthGate extends StatelessWidget {
         );
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            backgroundColor: Colors.white,
+            backgroundColor: const Color.fromARGB(255, 255, 202, 248),
             body: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -195,7 +196,7 @@ class _HomeRouterState extends State<_HomeRouter> {
     // Exibe carregamento enquanto lê o perfil do disco
     if (_carregando) {
       return const Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: Color.fromARGB(255, 255, 202, 248),
         body: Center(child: CircularProgressIndicator(color: Colors.purple)),
       );
     }

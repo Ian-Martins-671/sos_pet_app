@@ -35,7 +35,7 @@ class _ConscientizacaoCarouselState extends State<ConscientizacaoCarousel> {
   static const List<ConscientizacaoItem> _itens = [
     ConscientizacaoItem(
       frase: 'Um animal não é descartável. É uma vida que sente.',
-      imagemAsset: 'assets/images/Dogs/dog1.jpg',
+      imagemAsset: 'assets/images/dogs/dog1.jpg',
     ),
     ConscientizacaoItem(
       frase: 'Adotar é transformar duas vidas: a sua e a dele.',
@@ -43,7 +43,7 @@ class _ConscientizacaoCarouselState extends State<ConscientizacaoCarousel> {
     ),
     ConscientizacaoItem(
       frase: 'Abandonar é virar as costas para quem só oferece amor.',
-      imagemAsset: 'assets/images/Dogs/dog2.jpg',
+      imagemAsset: 'assets/images/dogs/dog2.jpg',
     ),
     ConscientizacaoItem(
       frase: 'Eles não precisam de luxo, precisam de cuidado.',
@@ -51,7 +51,7 @@ class _ConscientizacaoCarouselState extends State<ConscientizacaoCarousel> {
     ),
     ConscientizacaoItem(
       frase: 'Uma denúncia pode salvar uma vida.',
-      imagemAsset: 'assets/images/Dogs/dog3.jpg',
+      imagemAsset: 'assets/images/dogs/dog3.jpg',
     ),
     ConscientizacaoItem(
       frase: 'Amor também se demonstra com responsabilidade.',
@@ -59,7 +59,7 @@ class _ConscientizacaoCarouselState extends State<ConscientizacaoCarousel> {
     ),
     ConscientizacaoItem(
       frase: 'Não compre por impulso. Adote com consciência.',
-      imagemAsset: 'assets/images/Dogs/dog4.jpg',
+      imagemAsset: 'assets/images/dogs/dog4.jpg',
     ),
     ConscientizacaoItem(
       frase: 'Quem ama, protege. Quem cuida, não abandona.',
@@ -67,7 +67,7 @@ class _ConscientizacaoCarouselState extends State<ConscientizacaoCarousel> {
     ),
     ConscientizacaoItem(
       frase: 'Um lar muda tudo para quem já sofreu tanto.',
-      imagemAsset: 'assets/images/Dogs/dog5.jpg',
+      imagemAsset: 'assets/images/dogs/dog5.jpg',
     ),
     ConscientizacaoItem(
       frase: 'Animais sentem fome, frio, medo e saudade.',
@@ -75,7 +75,7 @@ class _ConscientizacaoCarouselState extends State<ConscientizacaoCarousel> {
     ),
     ConscientizacaoItem(
       frase: 'Não ignore um animal em situação de risco.',
-      imagemAsset: 'assets/images/Dogs/dog6.jpg',
+      imagemAsset: 'assets/images/dogs/dog6.jpg',
     ),
     ConscientizacaoItem(
       frase: 'Pequenas atitudes podem salvar grandes vidas.',
@@ -83,7 +83,7 @@ class _ConscientizacaoCarouselState extends State<ConscientizacaoCarousel> {
     ),
     ConscientizacaoItem(
       frase: 'A rua não é lugar para quem só quer carinho.',
-      imagemAsset: 'assets/images/Dogs/dog7.jpg',
+      imagemAsset: 'assets/images/dogs/dog7.jpg',
     ),
     ConscientizacaoItem(
       frase: 'Adoção é um compromisso para a vida toda.',
@@ -91,7 +91,7 @@ class _ConscientizacaoCarouselState extends State<ConscientizacaoCarousel> {
     ),
     ConscientizacaoItem(
       frase: 'Seja a voz de quem não consegue pedir ajuda.',
-      imagemAsset: 'assets/images/Dogs/dog8.jpg',
+      imagemAsset: 'assets/images/dogs/dog8.jpg',
     ),
     ConscientizacaoItem(
       frase: 'Cuidar de um animal é um ato de humanidade.',
@@ -99,7 +99,7 @@ class _ConscientizacaoCarouselState extends State<ConscientizacaoCarousel> {
     ),
     ConscientizacaoItem(
       frase: 'O abandono deixa marcas que não aparecem.',
-      imagemAsset: 'assets/images/Dogs/dog9.jpg',
+      imagemAsset: 'assets/images/dogs/dog9.jpg',
     ),
     ConscientizacaoItem(
       frase: 'Eles precisam de respeito, proteção e amor.',
@@ -107,7 +107,7 @@ class _ConscientizacaoCarouselState extends State<ConscientizacaoCarousel> {
     ),
     ConscientizacaoItem(
       frase: 'Antes de adotar, pense na responsabilidade.',
-      imagemAsset: 'assets/images/Dogs/dog10.jpg',
+      imagemAsset: 'assets/images/dogs/dog10.jpg',
     ),
     ConscientizacaoItem(
       frase: 'Não abandone. Procure ajuda.',
@@ -115,7 +115,7 @@ class _ConscientizacaoCarouselState extends State<ConscientizacaoCarousel> {
     ),
     ConscientizacaoItem(
       frase: 'Todo animal merece uma chance de ser feliz.',
-      imagemAsset: 'assets/images/Dogs/dog11.jpg',
+      imagemAsset: 'assets/images/dogs/dog11.jpg',
     ),
     ConscientizacaoItem(
       frase: 'Uma atitude sua pode mudar uma história.',
@@ -123,7 +123,7 @@ class _ConscientizacaoCarouselState extends State<ConscientizacaoCarousel> {
     ),
     ConscientizacaoItem(
       frase: 'Alimentar, proteger e acolher também é amar.',
-      imagemAsset: 'assets/images/Dogs/dog12.jpg',
+      imagemAsset: 'assets/images/dogs/dog12.jpg',
     ),
     ConscientizacaoItem(
       frase: 'Maus-tratos não são brincadeira. Denuncie!',
@@ -131,7 +131,7 @@ class _ConscientizacaoCarouselState extends State<ConscientizacaoCarousel> {
     ),
     ConscientizacaoItem(
       frase: 'Não existe motivo que justifique o abandono.',
-      imagemAsset: 'assets/images/Dogs/dog13.jpg',
+      imagemAsset: 'assets/images/dogs/dog13.jpg',
     ),
     ConscientizacaoItem(
       frase: 'Um coração pequeno também sente grandes dores.',
@@ -139,7 +139,7 @@ class _ConscientizacaoCarouselState extends State<ConscientizacaoCarousel> {
     ),
     ConscientizacaoItem(
       frase: 'Seja parte da mudança. Ajude a proteger.',
-      imagemAsset: 'assets/images/Dogs/dog14.jpg',
+      imagemAsset: 'assets/images/dogs/dog14.jpg',
     ),
     ConscientizacaoItem(
       frase: 'A vida deles também importa.',
@@ -147,7 +147,7 @@ class _ConscientizacaoCarouselState extends State<ConscientizacaoCarousel> {
     ),
     ConscientizacaoItem(
       frase: 'Respeitar os animais é respeitar a vida.',
-      imagemAsset: 'assets/images/Dogs/dog15.jpg',
+      imagemAsset: 'assets/images/dogs/dog15.jpg',
     ),
     ConscientizacaoItem(
       frase: 'Não feche os olhos para o sofrimento animal.',
@@ -155,7 +155,7 @@ class _ConscientizacaoCarouselState extends State<ConscientizacaoCarousel> {
     ),
     ConscientizacaoItem(
       frase: 'A solidariedade começa com uma atitude.',
-      imagemAsset: 'assets/images/Dogs/dog16.jpg',
+      imagemAsset: 'assets/images/dogs/dog16.jpg',
     ),
     ConscientizacaoItem(
       frase: 'Juntos podemos construir um mundo sem abandono.',
@@ -249,13 +249,13 @@ class _ConscientizacaoCarouselState extends State<ConscientizacaoCarousel> {
                 return Stack(
                   fit: StackFit.expand,
                   children: [
-                    // Imagem de fundo em assets com enquadramento focado na cabeça do pet
+                    // Imagem de fundo em assets já recortada na proporção ideal pelo usuário
                     Image.asset(
                       item.imagemAsset,
                       fit: BoxFit.cover,
-                      alignment: const Alignment(0.0, -0.6), // Prioriza o terço superior (cabeça/olhos)
-                      cacheWidth: 800,
-                      gaplessPlayback: true, // Mantém o quadro anterior sem piscar
+                      alignment: Alignment.center,
+                      cacheWidth: 900,
+                      gaplessPlayback: true,
                       errorBuilder: (context, error, stackTrace) {
                         return Container(
                           decoration: const BoxDecoration(
@@ -269,43 +269,53 @@ class _ConscientizacaoCarouselState extends State<ConscientizacaoCarousel> {
                       },
                     ),
 
-                    // Gradiente suave que mantém a cabeça do pet limpa no topo e escurece na base para a frase
+                    // Gradiente escuro para garantir nitidez e contraste da frase centralizada
                     Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          stops: const [0.0, 0.45, 1.0],
                           colors: [
-                            Colors.transparent,
-                            Colors.black.withValues(alpha: 0.35),
-                            Colors.black.withValues(alpha: 0.88),
+                            Colors.black.withValues(alpha: 0.25),
+                            Colors.black.withValues(alpha: 0.75),
                           ],
                         ),
                       ),
                     ),
 
-                    // Frase posicionada na base para deixar o rostinho do animal 100% visível
-                    Positioned(
-                      left: 16,
-                      right: 16,
-                      bottom: 16,
-                      child: Text(
-                        item.frase,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          height: 1.25,
-                          shadows: [
-                            Shadow(
-                              offset: Offset(0, 2),
-                              blurRadius: 6,
-                              color: Colors.black,
+                    // Mensagem centralizada no centro da imagem com o ícone de aspas (") e fonte aumentada
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24.0,
+                        vertical: 16.0,
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.format_quote_rounded,
+                            color: Colors.white70,
+                            size: 38,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            item.frase,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              height: 1.3,
+                              shadows: [
+                                Shadow(
+                                  offset: Offset(0, 2),
+                                  blurRadius: 6,
+                                  color: Colors.black,
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   ],

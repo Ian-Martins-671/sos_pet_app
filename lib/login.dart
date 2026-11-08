@@ -153,7 +153,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color.fromARGB(255, 255, 202, 248),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -664,7 +664,7 @@ class OnboardingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color.fromARGB(255, 255, 202, 248),
       appBar: AppBar(
         title: const Text('Configuração Inicial'),
         backgroundColor: Colors.white,

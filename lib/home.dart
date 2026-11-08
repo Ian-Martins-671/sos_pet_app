@@ -94,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         // Seção de filtros de status rápidos
         Container(
-          color: Colors.white,
+          color: const Color.fromARGB(255, 255, 202, 248),
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -362,10 +362,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: const Color.fromARGB(255, 255, 202, 248),
 
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color.fromARGB(255, 255, 202, 248),
         foregroundColor: Colors.purple,
         elevation: 1,
         title: _buildAppBarTitle(),
@@ -393,9 +393,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
-        notchMargin: 6.0,
+        notchMargin: 8.0,
         color: Colors.white,
         elevation: 8,
+        padding: const EdgeInsets.symmetric(horizontal: 24.0),
         child: SizedBox(
           height: 60,
           child: Row(
@@ -404,15 +405,18 @@ class _HomeScreenState extends State<HomeScreen> {
               IconButton(
                 icon: Icon(
                   Icons.home,
+                  size: 28,
                   color: _currentIndex == 0 ? Colors.purple : Colors.grey,
                 ),
                 onPressed: () => setState(() => _currentIndex = 0),
                 tooltip: 'Início',
               ),
-              const SizedBox(width: 48),
+              // Espaço central reservado para o botão de denúncia flutuante
+              const SizedBox(width: 56),
               IconButton(
                 icon: Icon(
                   Icons.map,
+                  size: 28,
                   color: _currentIndex == 1 ? Colors.purple : Colors.grey,
                 ),
                 onPressed: _abrirTelaMapa,
