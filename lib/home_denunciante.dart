@@ -233,7 +233,7 @@ class _HomeDenuncianteScreenState extends State<HomeDenuncianteScreen> {
   Widget build(BuildContext context) {
     // Scaffold fornece a estrutura básica de layout visual (fundo, barras, botão flutuante)
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 255, 202, 248), 
+      backgroundColor: const Color.fromARGB(255, 255, 202, 248),
 
       // Barra superior com a identidade visual do SOS Pet
       appBar: AppBar(
@@ -242,10 +242,14 @@ class _HomeDenuncianteScreenState extends State<HomeDenuncianteScreen> {
         elevation: 1,
         title: Row(
           children: [
-            const Icon(Icons.pets, color: Colors.purple),
-            const SizedBox(width: 8),
+            Image.asset(
+              'assets/images/icon/iconsospet.png',
+              width:35,
+              height: 35,
+              fit: BoxFit.contain,
+            ),
             Text(
-              _currentIndex == 1 ? 'Mapa de Casos' : 'SOS Pet',
+              _currentIndex == 1 ? 'Localização atual' : ' SOS Pet',
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ],
@@ -398,19 +402,6 @@ class _HomeDenuncianteScreenState extends State<HomeDenuncianteScreen> {
               ),
             ),
 
-      // Essa camada de código é do botão central em vermelho de "Denúncia" (redondo e proporcional)
-      floatingActionButton: FloatingActionButton(
-        onPressed: _abrirTelaDenuncia,
-        backgroundColor: Colors.red,
-        foregroundColor: Colors.white,
-        elevation: 4,
-        shape: const CircleBorder(),
-        tooltip: 'Fazer Denúncia',
-        child: const Icon(Icons.campaign, size: 38),
-      ),
-      // Posiciona o botão de denúncia centralizado na barra inferior
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-
       // Barra inferior com recorte suave para acomodar o botão flutuante central
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
@@ -420,28 +411,50 @@ class _HomeDenuncianteScreenState extends State<HomeDenuncianteScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 40.0),
         child: SizedBox(
           height: 60,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Stack(
+            clipBehavior: Clip.none,
             children: [
-              IconButton(
-                icon: Icon(
-                  Icons.home,
-                  size: 38,
-                  color: _currentIndex == 0 ? Colors.purple : Colors.grey,
+              Positioned.fill(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        Icons.home,
+                        size: 38,
+                        color: _currentIndex == 0 ? Colors.purple : Colors.grey,
+                      ),
+                      onPressed: () => setState(() => _currentIndex = 0),
+                      tooltip: 'Início',
+                    ),
+                    const SizedBox(width: 56),
+                    IconButton(
+                      icon: Icon(
+                        Icons.map,
+                        size: 38,
+                        color: _currentIndex == 1 ? Colors.purple : Colors.grey,
+                      ),
+                      onPressed: _abrirTelaMapa,
+                      tooltip: 'Abrir Mapa',
+                    ),
+                  ],
                 ),
-                onPressed: () => setState(() => _currentIndex = 0),
-                tooltip: 'Início',
               ),
-              // Espaço central reservado para o botão de denúncia flutuante
-              const SizedBox(width: 56),
-              IconButton(
-                icon: Icon(
-                  Icons.map,
-                  size: 38,
-                  color: _currentIndex == 1 ? Colors.purple : Colors.grey,
+              Positioned(
+                top: -28,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: FloatingActionButton(
+                    onPressed: _abrirTelaDenuncia,
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                    elevation: 4,
+                    shape: const CircleBorder(),
+                    tooltip: 'Fazer Denúncia',
+                    child: const Icon(Icons.campaign, size: 38),
+                  ),
                 ),
-                onPressed: _abrirTelaMapa,
-                tooltip: 'Abrir Mapa',
               ),
             ],
           ),
@@ -458,10 +471,7 @@ class _HomeDenuncianteScreenState extends State<HomeDenuncianteScreen> {
     required IconData icone,
   }) {
     return Card(
-      elevation: 1,
       margin: const EdgeInsets.only(bottom: 8.0),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: Colors.white,
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: Colors.purple.withValues(alpha: 0.1),
@@ -554,11 +564,6 @@ class _HomeDenuncianteScreenState extends State<HomeDenuncianteScreen> {
 
         if (docs.isEmpty) {
           return Card(
-            elevation: 1,
-            color: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
             child: const Padding(
               padding: EdgeInsets.all(16.0),
               child: Row(
@@ -590,12 +595,7 @@ class _HomeDenuncianteScreenState extends State<HomeDenuncianteScreen> {
             final fotoUrl = data['fotoUrl'] as String?;
 
             return Card(
-              elevation: 2,
               margin: const EdgeInsets.only(bottom: 12.0),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              color: Colors.white,
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(

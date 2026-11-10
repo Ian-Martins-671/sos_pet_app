@@ -518,11 +518,6 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
               // PERGUNTA INICIAL: Flagra de abandono? Sim / Não
               // -------------------------------------------------------------
               Card(
-                elevation: 2,
-                color: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
@@ -634,11 +629,6 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
               // -------------------------------------------------------------
               if (_isFlagrante) ...[
                 Card(
-                  elevation: 2,
-                  color: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
@@ -754,11 +744,6 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
               // DADOS DO ANIMAL (COMUM PARA AMBOS OS CASOS)
               // -------------------------------------------------------------
               Card(
-                elevation: 2,
-                color: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
@@ -921,11 +906,6 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
               // FOTO DO ANIMAL / OCORRÊNCIA (NÃO OBRIGATÓRIA)
               // -------------------------------------------------------------
               Card(
-                elevation: 2,
-                color: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
@@ -1049,11 +1029,6 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
               // LOCALIZAÇÃO DA OCORRÊNCIA
               // -------------------------------------------------------------
               Card(
-                elevation: 2,
-                color: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(

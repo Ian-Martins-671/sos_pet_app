@@ -5,14 +5,17 @@ service cloud.firestore {
     function isOng() {
       return request.auth != null
         && get(/databases/$(database)/documents/users/$(request.auth.uid))
-          .data.perfil == 'Ong/Clinica';
+          .data.perfil == 'Ong/Clinica'
+        && get(/databases/$(database)/documents/users/$(request.auth.uid))
+          .data.cnpjStatus == 'aprovado'
+        && get(/databases/$(database)/documents/users/$(request.auth.uid))
+          .data.cnpj is string
+        && get(/databases/$(database)/documents/users/$(request.auth.uid))
+          .data.cnpj.matches('^[A-Z0-9]{12}[0-9]{2}$');
     }
 
-    match /users/{userId} {
-      allow get: if request.auth != null
-        && request.auth.uid == userId;
-
-      allow create, update: if request.auth != null
+    function validUserProfile(userId) {
+      return request.auth != null
         && request.auth.uid == userId
         && request.resource.data.keys().hasAll(['uid', 'email'])
         && request.resource.data.keys().hasOnly([
@@ -22,7 +25,8 @@ service cloud.firestore {
           'fotoPerfil',
           'perfil',
           'configuracaoInicialPendente',
-          'cnpj'
+          'cnpj',
+          'cnpjStatus'
         ])
         && request.resource.data.uid == userId
         && request.resource.data.email is string
@@ -35,7 +39,35 @@ service cloud.firestore {
         && (!('configuracaoInicialPendente' in request.resource.data.keys())
           || request.resource.data.configuracaoInicialPendente is bool)
         && (!('cnpj' in request.resource.data.keys())
-          || request.resource.data.cnpj is string);
+          || (request.resource.data.cnpj is string
+            && request.resource.data.cnpj.matches('^[A-Z0-9]{12}[0-9]{2}$')))
+        && (!('cnpjStatus' in request.resource.data.keys())
+          || request.resource.data.cnpjStatus
+            in ['pendente', 'aprovado', 'rejeitado']);
+    }
+
+    match /users/{userId} {
+      allow get: if request.auth != null
+        && request.auth.uid == userId;
+
+      allow create: if validUserProfile(userId)
+        && (request.resource.data.get('perfil', null) != 'Ong/Clinica'
+          || (request.resource.data.cnpjStatus == 'pendente'
+            && request.resource.data.cnpj is string));
+
+      allow update: if validUserProfile(userId)
+        && (request.resource.data.get('cnpjStatus', null) == 'pendente'
+          || request.resource.data.get('cnpjStatus', null)
+            == resource.data.get('cnpjStatus', null))
+        && (resource.data.get('cnpjStatus', null) != 'aprovado'
+          || request.resource.data.get('cnpjStatus', null) == 'aprovado')
+        && (resource.data.get('cnpjStatus', null) != 'aprovado'
+          || request.resource.data.get('cnpj', null)
+            == resource.data.get('cnpj', null))
+        && (request.resource.data.get('perfil', null) != 'Ong/Clinica'
+          || (request.resource.data.cnpjStatus
+              in ['pendente', 'aprovado']
+            && request.resource.data.cnpj is string));
     }
 
     match /denuncias/{denunciaId} {

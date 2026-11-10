@@ -16,4 +16,23 @@ void main() {
       expect(normalizePhoneNumber(''), isNull);
     });
   });
+
+  group('normalizeCnpj', () {
+    test('validates and normalizes a formatted numeric CNPJ', () {
+      expect(normalizeCnpj('11.222.333/0001-81'), '11222333000181');
+    });
+
+    test('supports alphanumeric CNPJ and uppercase normalization', () {
+      expect(normalizeCnpj('12.abc.345/01de-35'), '12ABC34501DE35');
+    });
+
+    test(
+      'rejects invalid check digits, repeated values, and wrong lengths',
+      () {
+        expect(normalizeCnpj('11.222.333/0001-80'), isNull);
+        expect(normalizeCnpj('00.000.000/0000-00'), isNull);
+        expect(normalizeCnpj('123'), isNull);
+      },
+    );
+  });
 }

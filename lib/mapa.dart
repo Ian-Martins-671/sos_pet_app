@@ -45,8 +45,6 @@ class _MapaScreenState extends State<MapaScreen> {
   @override
   void initState() {
     super.initState();
-    // Essa camada de código carrega os marcadores das denúncias de exemplo
-    _carregarMarcadoresExemplo();
     // Essa camada de código inicia o monitoramento da localização em tempo real
     _iniciarLocalizacaoEmTempoReal();
   }
@@ -176,41 +174,6 @@ class _MapaScreenState extends State<MapaScreen> {
     }
   }
 
-  // Popula os marcadores de denúncias para visualização
-  void _carregarMarcadoresExemplo() {
-    setState(() {
-      _markers.addAll([
-        Marker(
-          markerId: const MarkerId('denuncia_1'),
-          position: const LatLng(-23.55052, -46.633308),
-          infoWindow: const InfoWindow(
-            title: 'Cachorro Machucado',
-            snippet: 'Status: Pendente - Rua das Flores',
-          ),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-        ),
-        Marker(
-          markerId: const MarkerId('denuncia_2'),
-          position: const LatLng(-23.55352, -46.631308),
-          infoWindow: const InfoWindow(
-            title: 'Gata com Filhotes',
-            snippet: 'Status: Em Resgate - Av. Paulista',
-          ),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-        ),
-        Marker(
-          markerId: const MarkerId('denuncia_3'),
-          position: const LatLng(-23.54752, -46.636308),
-          infoWindow: const InfoWindow(
-            title: 'Cão Idoso Abandonado',
-            snippet: 'Status: Resgatado - Praça Central',
-          ),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-        ),
-      ]);
-    });
-  }
-
   // Callback chamado quando o mapa é completamente instanciado na tela
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
@@ -248,7 +211,7 @@ class _MapaScreenState extends State<MapaScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: const Color(0xFFFFF8FC),
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: const [
                   BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2)),

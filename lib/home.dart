@@ -1,9 +1,183 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:sos_pet/denuncia.dart';
 import 'package:sos_pet/mapa.dart';
 import 'package:sos_pet/user_profile.dart';
 import 'package:sos_pet/conscientizacao_carousel.dart';
+
+class OngApprovalGate extends StatefulWidget {
+  const OngApprovalGate({super.key});
+
+  @override
+  State<OngApprovalGate> createState() => _OngApprovalGateState();
+}
+
+class _OngApprovalGateState extends State<OngApprovalGate> {
+  int _reloadKey = 0;
+  bool _saindo = false;
+
+  Future<void> _voltarAoLogin() async {
+    setState(() => _saindo = true);
+    try {
+      await FirebaseAuth.instance.signOut();
+    } catch (error) {
+      debugPrint('Erro ao sair da conta ONG: $error');
+      if (!mounted) return;
+      setState(() => _saindo = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não foi possível voltar ao login. Tente novamente.'),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return const Scaffold(
+        body: Center(child: Text('Entre novamente para verificar sua conta.')),
+      );
+    }
+
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      key: ValueKey(_reloadKey),
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Scaffold(
+            backgroundColor: const Color.fromARGB(255, 255, 202, 248),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      color: Colors.red,
+                      size: 36,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Não foi possível consultar a confirmação do CNPJ.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: () => setState(() => _reloadKey++),
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Tentar novamente'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            backgroundColor: Color.fromARGB(255, 255, 202, 248),
+            body: Center(
+              child: CircularProgressIndicator(color: Colors.purple),
+            ),
+          );
+        }
+
+        final profile = snapshot.data?.data();
+        final cnpjStatus = profile?['cnpjStatus'] as String?;
+        final cnpj = normalizeCnpj(profile?['cnpj'] as String? ?? '');
+        if (profile?['perfil'] == 'Ong/Clinica' &&
+            cnpj != null &&
+            cnpjStatus == 'aprovado') {
+          return const HomeScreen();
+        }
+
+        final recusado = cnpjStatus == 'rejeitado';
+        return Scaffold(
+          backgroundColor: const Color.fromARGB(255, 255, 202, 248),
+          appBar: AppBar(
+            backgroundColor: const Color.fromARGB(255, 255, 202, 248),
+            foregroundColor: Colors.purple,
+            title: Row(
+              children: [
+                Image.asset(
+                  'assets/images/icon/iconsospet.png',
+                  width: 32,
+                  height: 32,
+                ),
+                const SizedBox(width: 8),
+                const Text('SOS Pet - ONG'),
+              ],
+            ),
+          ),
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        recusado
+                            ? Icons.gpp_bad_outlined
+                            : Icons.hourglass_top_rounded,
+                        color: recusado ? Colors.red : Colors.deepOrange,
+                        size: 44,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        recusado
+                            ? 'CNPJ não confirmado'
+                            : 'CNPJ aguardando confirmação',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        recusado
+                            ? 'A equipe não conseguiu confirmar o cadastro. Entre em contato com o suporte para corrigir os dados.'
+                            : 'O acesso às denúncias será liberado após a análise manual dos dados da ONG. Esta tela será atualizada quando a confirmação for concluída.',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.black54),
+                      ),
+                      if (!recusado) ...[
+                        const SizedBox(height: 16),
+                        FilledButton(
+                          onPressed: _saindo ? null : _voltarAoLogin,
+                          child: _saindo
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text('OK'),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
 
 // Tela principal da aplicação para ONGs/Clínicas gerenciando abas, mapa e feed de denúncias em tempo real
 class HomeScreen extends StatefulWidget {
@@ -19,6 +193,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Filtro de status atualmente selecionado no feed
   String _filtroSelecionado = 'Todos';
+  int _feedReloadKey = 0;
 
   // Essa camada de código é da função que abre o formulário de nova denúncia
   void _abrirTelaDenuncia() {
@@ -54,11 +229,19 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         );
       default:
-        return const Row(
+        return Row(
           children: [
-            Icon(Icons.pets, color: Colors.purple),
-            SizedBox(width: 8),
-            Text('SOS Pet - ONG', style: TextStyle(fontWeight: FontWeight.bold)),
+            Image.asset(
+              'assets/images/icon/iconsospet.png',
+              width: 32,
+              height: 32,
+              fit: BoxFit.contain,
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              'SOS Pet - ONG',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ],
         );
     }
@@ -87,7 +270,10 @@ class _HomeScreenState extends State<HomeScreen> {
     } else if (_filtroSelecionado == 'Em Resgate') {
       query = query.where('status', whereIn: ['Em atendimento', 'Em Resgate']);
     } else if (_filtroSelecionado == 'Resgatados') {
-      query = query.where('status', whereIn: ['Animal resgatado', 'Resgatado', 'Atendimento finalizado']);
+      query = query.where(
+        'status',
+        whereIn: ['Animal resgatado', 'Resgatado', 'Atendimento finalizado'],
+      );
     }
 
     return Column(
@@ -115,32 +301,56 @@ class _HomeScreenState extends State<HomeScreen> {
         // StreamBuilder ouve as ocorrências do Firestore em tempo real
         Expanded(
           child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: query.snapshots(),
+            key: ValueKey(_feedReloadKey),
+            stream: query.snapshots(includeMetadataChanges: true),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
+                final permissionDenied =
+                    snapshot.error is FirebaseException &&
+                    (snapshot.error! as FirebaseException).code ==
+                        'permission-denied';
+                debugPrint('Erro ao carregar denúncias: ${snapshot.error}');
                 return ListView(
                   padding: const EdgeInsets.all(16.0),
                   children: [
                     const ConscientizacaoCarousel(),
                     const SizedBox(height: 16),
                     Card(
-                      color: Colors.red.shade50,
                       child: Padding(
                         padding: const EdgeInsets.all(16.0),
-                        child: Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.error_outline, color: Colors.red),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'Não foi possível carregar as denúncias: ${snapshot.error}',
-                                style: const TextStyle(color: Colors.red),
-                              ),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  Icons.error_outline,
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    permissionDenied
+                                        ? 'Sua conta ainda não tem permissão para visualizar as denúncias. O CNPJ precisa ser confirmado e as regras do Firestore publicadas.'
+                                        : 'Não foi possível carregar as denúncias. Verifique sua conexão e tente novamente.',
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            OutlinedButton.icon(
+                              onPressed: () {
+                                setState(() => _feedReloadKey++);
+                              },
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Tentar novamente'),
                             ),
                           ],
                         ),
                       ),
                     ),
+                    _buildFluxoApp(),
                   ],
                 );
               }
@@ -158,33 +368,149 @@ class _HomeScreenState extends State<HomeScreen> {
                 );
               }
 
-              final docs = snapshot.data?.docs ?? [];
+              final querySnapshot = snapshot.data;
+              if (querySnapshot == null || querySnapshot.metadata.isFromCache) {
+                return ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    const ConscientizacaoCarousel(),
+                    const SizedBox(height: 16),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          children: [
+                            const Text(
+                              'Aguardando sincronização com o Firebase. '
+                              'Para evitar mostrar denúncias já removidas, '
+                              'os dados locais não serão exibidos.',
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 12),
+                            OutlinedButton.icon(
+                              onPressed: () {
+                                setState(() => _feedReloadKey++);
+                              },
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Tentar novamente'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    _buildFluxoApp(),
+                  ],
+                );
+              }
 
-              return ListView.builder(
+              final docs = querySnapshot.docs;
+
+              return ListView(
                 padding: const EdgeInsets.only(
                   left: 16.0,
                   right: 16.0,
                   top: 12.0,
                   bottom: 80.0,
                 ),
-                itemCount: docs.length + 1, // +1 para o carrossel no topo
-                itemBuilder: (context, index) {
-                  if (index == 0) {
-                    return const Padding(
-                      padding: EdgeInsets.only(bottom: 16.0),
-                      child: ConscientizacaoCarousel(),
-                    );
-                  }
-
-                  final doc = docs[index - 1];
-                  final data = doc.data();
-                  return _buildCardDenuncia(doc.id, data);
-                },
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 16.0),
+                    child: ConscientizacaoCarousel(),
+                  ),
+                  if (docs.isEmpty)
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            Icon(Icons.inbox_outlined, color: Colors.purple),
+                            SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                _filtroSelecionado == 'Pendentes'
+                                    ? 'Não há denúncias pendentes no momento.'
+                                    : 'Nenhuma denúncia encontrada para este filtro.',
+                                style: const TextStyle(color: Colors.black54),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ...docs.map((doc) => _buildCardDenuncia(doc.id, doc.data())),
+                  _buildFluxoApp(),
+                ],
               );
             },
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildFluxoApp() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 8),
+          child: Text(
+            'Como funciona o SOS Pet?',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+        ),
+        _buildPassoResgate(
+          numero: '1',
+          titulo: 'Denúncia registrada',
+          descricao: 'O denunciante envia os dados, a localização e, se possível, uma foto.',
+          icone: Icons.campaign_outlined,
+        ),
+        _buildPassoResgate(
+          numero: '2',
+          titulo: 'ONG verifica a ocorrência',
+          descricao: 'Após a confirmação do CNPJ, a equipe pode analisar as denúncias pendentes.',
+          icone: Icons.fact_check_outlined,
+        ),
+        _buildPassoResgate(
+          numero: '3',
+          titulo: 'Atendimento iniciado',
+          descricao:
+              'A ONG assume a ocorrência e registra atualizações do resgate.',
+          icone: Icons.medical_services_outlined,
+        ),
+        _buildPassoResgate(
+          numero: '4',
+          titulo: 'Desfecho acompanhado',
+          descricao: 'O denunciante acompanha o status até a conclusão do atendimento.',
+          icone: Icons.favorite_outline,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPassoResgate({
+    required String numero,
+    required String titulo,
+    required String descricao,
+    required IconData icone,
+  }) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: Colors.purple.withValues(alpha: 0.1),
+          foregroundColor: Colors.purple,
+          child: Icon(icone),
+        ),
+        title: Text(
+          '$numero. $titulo',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+        ),
+        subtitle: Text(
+          descricao,
+          style: const TextStyle(fontSize: 12, color: Colors.black54),
+        ),
+      ),
     );
   }
 
@@ -225,77 +551,78 @@ class _HomeScreenState extends State<HomeScreen> {
     final condicao = (data['condicaoAnimal'] as String?) ?? '';
     final tipo = (data['tipo'] as String?) ?? 'Ocorrência';
     final isFlagrante = tipo == 'Flagrante';
-    final endereco = (data['endereco'] as String?) ?? 'Localização não informada';
+    final endereco =
+        (data['endereco'] as String?) ?? 'Localização não informada';
     final fotoUrl = data['fotoUrl'] as String?;
     final criadoEm = data['criadoEm'] as Timestamp?;
     final tempoTexto = _formatarData(criadoEm);
     final descricao = (data['descricao'] as String?) ?? '';
+    final ultimaAtualizacao =
+        (data['ultimaAtualizacao'] as String?) ?? 'Aguardando atendimento.';
 
     return Card(
-      elevation: 2,
       margin: const EdgeInsets.only(bottom: 14.0),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(14.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Topo do card com Status, Tipo e Horário
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: corStatus.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: corStatus, width: 1.2),
-                      ),
-                      child: Text(
-                        status,
-                        style: TextStyle(
-                          color: corStatus,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: corStatus.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: corStatus, width: 1.2),
+                  ),
+                  child: Text(
+                    status,
+                    style: TextStyle(
+                      color: corStatus,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
                     ),
-                    if (isFlagrante) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.red),
-                        ),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.warning_amber_rounded, size: 14, color: Colors.red),
-                            SizedBox(width: 4),
-                            Text(
-                              'FLAGRANTE',
-                              style: TextStyle(
-                                color: Colors.red,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
+                if (isFlagrante)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          size: 14,
+                          color: Colors.red,
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          'FLAGRANTE',
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 Text(
                   tempoTexto,
                   style: const TextStyle(color: Colors.grey, fontSize: 12),
@@ -313,7 +640,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   height: 160,
                   width: double.infinity,
                   fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                  errorBuilder: (context, error, stackTrace) =>
+                      const SizedBox.shrink(),
                 ),
               ),
               const SizedBox(height: 10),
@@ -353,6 +681,29 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
+            const Divider(height: 24),
+            Row(
+              children: [
+                Icon(
+                  status == 'Pendente'
+                      ? Icons.hourglass_empty
+                      : Icons.update_outlined,
+                  size: 18,
+                  color: corStatus,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    ultimaAtualizacao,
+                    style: const TextStyle(
+                      color: Colors.black87,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -380,17 +731,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
       body: _buildBody(),
 
-      floatingActionButton: FloatingActionButton(
-        onPressed: _abrirTelaDenuncia,
-        backgroundColor: Colors.red,
-        foregroundColor: Colors.white,
-        elevation: 4,
-        shape: const CircleBorder(),
-        tooltip: 'Fazer Denúncia',
-        child: const Icon(Icons.campaign, size: 28),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
         notchMargin: 8.0,
@@ -399,28 +739,50 @@ class _HomeScreenState extends State<HomeScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 24.0),
         child: SizedBox(
           height: 60,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Stack(
+            clipBehavior: Clip.none,
             children: [
-              IconButton(
-                icon: Icon(
-                  Icons.home,
-                  size: 28,
-                  color: _currentIndex == 0 ? Colors.purple : Colors.grey,
+              Positioned.fill(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        Icons.home,
+                        size: 28,
+                        color: _currentIndex == 0 ? Colors.purple : Colors.grey,
+                      ),
+                      onPressed: () => setState(() => _currentIndex = 0),
+                      tooltip: 'Início',
+                    ),
+                    const SizedBox(width: 56),
+                    IconButton(
+                      icon: Icon(
+                        Icons.map,
+                        size: 28,
+                        color: _currentIndex == 1 ? Colors.purple : Colors.grey,
+                      ),
+                      onPressed: _abrirTelaMapa,
+                      tooltip: 'Mapa de Casos',
+                    ),
+                  ],
                 ),
-                onPressed: () => setState(() => _currentIndex = 0),
-                tooltip: 'Início',
               ),
-              // Espaço central reservado para o botão de denúncia flutuante
-              const SizedBox(width: 56),
-              IconButton(
-                icon: Icon(
-                  Icons.map,
-                  size: 28,
-                  color: _currentIndex == 1 ? Colors.purple : Colors.grey,
+              Positioned(
+                top: -28,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: FloatingActionButton(
+                    onPressed: _abrirTelaDenuncia,
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                    elevation: 4,
+                    shape: const CircleBorder(),
+                    tooltip: 'Fazer Denúncia',
+                    child: const Icon(Icons.campaign, size: 28),
+                  ),
                 ),
-                onPressed: _abrirTelaMapa,
-                tooltip: 'Mapa de Casos',
               ),
             ],
           ),

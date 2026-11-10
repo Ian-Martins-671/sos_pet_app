@@ -7,6 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 String userSetupPendingKey(String uid) => 'configuracao_inicial_pendente_$uid';
 
+String userCnpjKey(String uid) => 'cnpj_usuario_$uid';
+
 String? normalizePhoneNumber(String value) {
   final input = value.trim();
   if (input.isEmpty) return null;
@@ -30,14 +32,53 @@ String? normalizePhoneNumber(String value) {
       : null;
 }
 
+String? normalizeCnpj(String value) {
+  final formatted = value.trim().toUpperCase();
+  if (!RegExp(r'^[A-Z0-9./\-\s]+$').hasMatch(formatted)) return null;
+  final cnpj = formatted.replaceAll(RegExp(r'[./\-\s]'), '');
+  if (!RegExp(r'^[A-Z0-9]{12}[0-9]{2}$').hasMatch(cnpj)) return null;
+  if (cnpj.split('').toSet().length == 1) return null;
+
+  const firstWeights = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  const secondWeights = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+  int calculateDigit(String value, List<int> weights) {
+    final sum = List.generate(
+      weights.length,
+      (index) => (value.codeUnitAt(index) - 48) * weights[index],
+    ).fold<int>(0, (total, value) => total + value);
+    final remainder = sum % 11;
+    return remainder < 2 ? 0 : 11 - remainder;
+  }
+
+  final firstDigit = calculateDigit(cnpj.substring(0, 12), firstWeights);
+  final secondDigit = calculateDigit(
+    '${cnpj.substring(0, 12)}$firstDigit',
+    secondWeights,
+  );
+  if (cnpj[12] != '$firstDigit' || cnpj[13] != '$secondDigit') return null;
+  return cnpj;
+}
+
 Future<void> saveUserProfile(
   User user, {
   String? phoneNumber,
   bool? initialSetupPending,
   String? role,
+  String? cnpj,
 }) async {
   if (role != null && !['Denunciante', 'Ong/Clinica'].contains(role)) {
     throw ArgumentError.value(role, 'role', 'Perfil inválido.');
+  }
+  final cnpjValidado = cnpj == null ? null : normalizeCnpj(cnpj);
+  if (role == 'Ong/Clinica' && cnpjValidado == null) {
+    throw ArgumentError.value(
+      cnpj,
+      'cnpj',
+      'Informe um CNPJ válido para a ONG.',
+    );
+  }
+  if (cnpj != null && cnpjValidado == null) {
+    throw ArgumentError.value(cnpj, 'cnpj', 'Informe um CNPJ válido.');
   }
 
   final reference = FirebaseFirestore.instance
@@ -54,21 +95,41 @@ Future<void> saveUserProfile(
   if (role != null) {
     profile['perfil'] = role;
   }
+  if (cnpjValidado != null) {
+    profile['cnpj'] = cnpjValidado;
+    profile['cnpjStatus'] = 'pendente';
+  }
 
   await reference.set(profile, SetOptions(merge: true));
 }
 
-Future<void> saveUserRole(User user, String role) async {
+Future<void> saveUserRole(User user, String role, {String? cnpj}) async {
   if (!['Denunciante', 'Ong/Clinica'].contains(role)) {
     throw ArgumentError.value(role, 'role', 'Perfil inválido.');
   }
+  final cnpjValidado = cnpj == null ? null : normalizeCnpj(cnpj);
+  if (role == 'Ong/Clinica' && cnpjValidado == null) {
+    throw ArgumentError.value(
+      cnpj,
+      'cnpj',
+      'Informe um CNPJ válido para a ONG.',
+    );
+  }
 
-  await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+  final profile = <String, Object>{
     'uid': user.uid,
     'email': user.email ?? '',
     'perfil': role,
     'configuracaoInicialPendente': false,
-  }, SetOptions(merge: true));
+  };
+  if (cnpjValidado != null) {
+    profile['cnpj'] = cnpjValidado;
+    profile['cnpjStatus'] = 'pendente';
+  }
+  await FirebaseFirestore.instance
+      .collection('users')
+      .doc(user.uid)
+      .set(profile, SetOptions(merge: true));
 }
 
 class UserProfileScreen extends StatefulWidget {
@@ -189,12 +250,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => const NotificationsScreen()),
     );
-  }
-
-  void _openCredentials() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const CredentialsScreen()));
   }
 
   Future<void> _confirmLogout() async {
@@ -352,15 +407,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   subtitle: const Text('Adicionar número de telefone'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: _openPersonalData,
-                ),
-              ),
-              Card(
-                child: ListTile(
-                  leading: const Icon(Icons.key, color: Colors.purple),
-                  title: const Text('Credenciais'),
-                  subtitle: const Text('E-mail e forma de acesso'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: _openCredentials,
                 ),
               ),
               const SizedBox(height: 20),

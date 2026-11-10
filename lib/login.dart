@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -164,6 +165,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  Image.asset(
+                    'assets/images/icon/iconsospet.png',
+                    width: 96,
+                    height: 96,
+                    fit: BoxFit.contain,
+                  ),
+                  const SizedBox(height: 12),
                   const Text(
                     'SOS Pet',
                     textAlign: TextAlign.center,
@@ -177,7 +185,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 12),
 
                   const Text(
-                    'Entre para ajudar a proteger os animais.',
+                    'Entre ou cadastre-se para ajudar a proteger os animais.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 16, color: Colors.black54),
                   ),
@@ -326,6 +334,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _cnpjController = TextEditingController();
   bool _carregando = false;
   String? _perfilSelecionado;
 
@@ -341,7 +350,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final telefone = normalizePhoneNumber(_phoneController.text);
     if (telefone == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
             'Informe um telefone válido, incluindo o código do país.',
           ),
@@ -350,11 +359,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
       return;
     }
+    final cnpj = perfil == 'Ong/Clinica'
+        ? normalizeCnpj(_cnpjController.text)
+        : null;
+    if (perfil == 'Ong/Clinica' && cnpj == null) {
+      _mostrarMensagem('Informe um CNPJ válido para a ONG.');
+      return;
+    }
 
     setState(() => _carregando = true);
     final prefs = await SharedPreferences.getInstance();
-    final perfilAnterior = prefs.getString('perfil_usuario');
-    await prefs.setString('perfil_usuario', perfil);
 
     UserCredential result;
     try {
@@ -364,7 +378,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
       await prefs.setBool(userSetupPendingKey(result.user!.uid), true);
     } on FirebaseAuthException catch (e) {
-      await _restaurarPerfilLocal(prefs, perfilAnterior);
       final mensagem = switch (e.code) {
         'email-already-in-use' => 'Este e-mail já está cadastrado.',
         'invalid-email' => 'O e-mail informado é inválido.',
@@ -378,7 +391,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (mounted) setState(() => _carregando = false);
       return;
     } catch (e) {
-      await _restaurarPerfilLocal(prefs, perfilAnterior);
       debugPrint('Erro inesperado ao criar conta: $e');
       _mostrarMensagem('Não foi possível criar a conta. Tente novamente.');
       if (mounted) setState(() => _carregando = false);
@@ -392,7 +404,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         phoneNumber: telefone,
         initialSetupPending: false,
         role: perfil,
+        cnpj: cnpj,
       );
+      await prefs.setString('perfil_usuario', perfil);
       await prefs.remove(userSetupPendingKey(result.user!.uid));
     } on FirebaseException catch (e) {
       debugPrint('Erro Firebase ao salvar perfil: ${e.code} - ${e.message}');
@@ -430,17 +444,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  Future<void> _restaurarPerfilLocal(
-    SharedPreferences prefs,
-    String? perfilAnterior,
-  ) async {
-    if (perfilAnterior == null) {
-      await prefs.remove('perfil_usuario');
-    } else {
-      await prefs.setString('perfil_usuario', perfilAnterior);
-    }
-  }
-
   Widget _buildRoleOption({
     required String role,
     required String title,
@@ -449,11 +452,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }) {
     final selecionado = _perfilSelecionado == role;
     return Card(
-      color: selecionado ? Colors.purple.withValues(alpha: 0.08) : Colors.white,
+      color: selecionado
+          ? Colors.purple.withValues(alpha: 0.08)
+          : const Color(0xFFFFF8FC),
+      elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         side: BorderSide(
-          color: selecionado ? Colors.purple : Colors.black12,
+          color: selecionado ? Colors.purple : const Color(0xFFE9D8E8),
           width: selecionado ? 1.5 : 1,
         ),
       ),
@@ -488,6 +494,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _phoneController.dispose();
+    _cnpjController.dispose();
     super.dispose();
   }
 
@@ -529,6 +536,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   subtitle: 'Receber e acompanhar denúncias para atendimento.',
                   icon: Icons.volunteer_activism_outlined,
                 ),
+                if (_perfilSelecionado == 'Ong/Clinica') ...[
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _cnpjController,
+                    keyboardType: TextInputType.text,
+                    textCapitalization: TextCapitalization.characters,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(
+                        RegExp(r'[A-Za-z0-9./-]'),
+                      ),
+                    ],
+                    maxLength: 18,
+                    decoration: const InputDecoration(
+                      labelText: 'CNPJ da ONG/Clínica *',
+                      hintText: '00.000.000/0000-00',
+                      helperText: 'O CNPJ ficará pendente até análise manual. Validar o número não confirma vínculo.',
+                      prefixIcon: Icon(
+                        Icons.business_outlined,
+                        color: Colors.purple,
+                      ),
+                    ),
+                    validator: (value) {
+                      if (_perfilSelecionado == 'Ong/Clinica' &&
+                          normalizeCnpj(value ?? '') == null) {
+                        return 'Informe um CNPJ válido.';
+                      }
+                      return null;
+                    },
+                  ),
+                ],
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _emailController,
@@ -619,14 +656,72 @@ class OnboardingScreen extends StatelessWidget {
 
   final ValueChanged<String> onRoleSelected;
 
+  Future<String?> _solicitarCnpj(BuildContext context) async {
+    final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    final cnpj = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('CNPJ da ONG/Clínica'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: controller,
+            keyboardType: TextInputType.text,
+            textCapitalization: TextCapitalization.characters,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9./-]')),
+            ],
+            maxLength: 18,
+            decoration: const InputDecoration(
+              hintText: '00.000.000/0000-00',
+              helperText: 'O CNPJ ficará pendente até análise manual. Validar o número não confirma vínculo.',
+            ),
+            validator: (value) => normalizeCnpj(value ?? '') == null
+                ? 'Informe um CNPJ válido.'
+                : null,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(dialogContext, normalizeCnpj(controller.text));
+              }
+            },
+            child: const Text('Enviar para análise'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    return cnpj;
+  }
+
   // Essa camada de código salva o perfil escolhido e redireciona para a Home correta
-  Future<void> _selectRole(BuildContext context, String role) async {
+  Future<void> _selectRole(
+    BuildContext context,
+    String role, {
+    String? cnpj,
+  }) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         throw StateError('Usuário não autenticado ao salvar perfil.');
       }
       final prefs = await SharedPreferences.getInstance();
+      if (role == 'Ong/Clinica') {
+        await saveUserRole(user, role, cnpj: cnpj);
+        await prefs.setString('perfil_usuario', role);
+        await prefs.remove(userSetupPendingKey(user.uid));
+        if (context.mounted) onRoleSelected(role);
+        return;
+      }
+
       await prefs.setString('perfil_usuario', role);
       await prefs.remove(userSetupPendingKey(user.uid));
 
@@ -651,9 +746,11 @@ class OnboardingScreen extends StatelessWidget {
       debugPrint('Erro ao salvar perfil inicial: $error');
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Não foi possível salvar sua configuração. Verifique a conexão e tente novamente.',
+            error is FirebaseException && error.code == 'permission-denied'
+                ? 'Não foi possível enviar o CNPJ. Publique as regras atualizadas do Firestore e tente novamente.'
+                : 'Não foi possível salvar sua configuração. Verifique a conexão e tente novamente.',
           ),
           backgroundColor: Colors.red,
         ),
@@ -708,7 +805,11 @@ class OnboardingScreen extends StatelessWidget {
             const SizedBox(height: 16),
 
             OutlinedButton(
-              onPressed: () => _selectRole(context, 'Ong/Clinica'),
+              onPressed: () async {
+                final cnpj = await _solicitarCnpj(context);
+                if (!context.mounted || cnpj == null) return;
+                await _selectRole(context, 'Ong/Clinica', cnpj: cnpj);
+              },
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.purple,
                 side: const BorderSide(color: Colors.purple, width: 2),

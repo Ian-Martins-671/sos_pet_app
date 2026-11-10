@@ -35,6 +35,35 @@ class MyApp extends StatelessWidget {
         // Define a paleta roxa do aplicativo e adota os padrões visuais do Material 3
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.purple),
         scaffoldBackgroundColor: const Color.fromARGB(255, 255, 202, 248),
+        cardTheme: const CardThemeData(
+          color: Color(0xFFFFF8FC),
+          elevation: 0,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(10)),
+            side: BorderSide(color: Color(0xFFE9D8E8)),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: const Color(0xFFFFFCFE),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 14,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Color(0xFFE9D8E8)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Color(0xFFE9D8E8)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Colors.purple, width: 1.5),
+          ),
+        ),
         useMaterial3: true,
       ),
       // Essa camada de código é do AuthGate: controla para onde o app vai ao abrir.
@@ -136,14 +165,34 @@ class _HomeRouterState extends State<_HomeRouter> {
       }
 
       final savedRole = data?['perfil'] as String?;
-      if (savedRole == 'Denunciante' || savedRole == 'Ong/Clinica') {
+      if (savedRole == 'Ong/Clinica') {
+        final cnpj = normalizeCnpj(data?['cnpj'] as String? ?? '');
+        final cnpjStatus = data?['cnpjStatus'] as String?;
+        if (cnpj == null ||
+            !['pendente', 'aprovado', 'rejeitado'].contains(cnpjStatus)) {
+          _setLoadedProfile(null);
+          return;
+        }
+        await prefs.setString('perfil_usuario', savedRole!);
+        await prefs.setString(userCnpjKey(user.uid), cnpj);
+        await prefs.remove(userSetupPendingKey(user.uid));
+        _setLoadedProfile(savedRole);
+        return;
+      }
+
+      if (savedRole == 'Denunciante') {
         await prefs.setString('perfil_usuario', savedRole!);
         await prefs.remove(userSetupPendingKey(user.uid));
         _setLoadedProfile(savedRole);
         return;
       }
 
-      if (localRole == 'Denunciante' || localRole == 'Ong/Clinica') {
+      if (localRole == 'Ong/Clinica') {
+        _setLoadedProfile(null);
+        return;
+      }
+
+      if (localRole == 'Denunciante') {
         await prefs.remove(userSetupPendingKey(user.uid));
         try {
           await saveUserRole(user, localRole!);
@@ -237,7 +286,7 @@ class _HomeRouterState extends State<_HomeRouter> {
     if (_perfil == 'Denunciante') {
       return const HomeDenuncianteScreen();
     } else {
-      return const HomeScreen();
+      return const OngApprovalGate();
     }
   }
 
