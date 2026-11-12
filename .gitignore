@@ -61,3 +61,8 @@ app.*.map.json
 # Arquivos temporários do editor
 *.bak
 *.tmp
+
+# Chaves privadas de assinatura Android
+android/key.properties
+*.jks
+*.keystore

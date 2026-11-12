@@ -148,9 +148,18 @@ class _HomeRouterState extends State<_HomeRouter> {
   Future<void> _carregarPerfil() async {
     try {
       final user = FirebaseAuth.instance.currentUser!;
-      final prefs = await SharedPreferences.getInstance();
-      final localRole = prefs.getString('perfil_usuario');
-      final localSetupPending = prefs.getBool(userSetupPendingKey(user.uid));
+      SharedPreferences? prefs;
+      String? localRole;
+      bool? localSetupPending;
+      try {
+        prefs = await SharedPreferences.getInstance();
+        localRole = prefs.getString('perfil_usuario');
+        localSetupPending = prefs.getBool(userSetupPendingKey(user.uid));
+      } catch (error, stackTrace) {
+        debugPrint('AUTH_DIAGNOSTIC falha ao ler SharedPreferences: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
+
       Map<String, dynamic>? data;
       try {
         final snapshot = await FirebaseFirestore.instance
@@ -173,16 +182,24 @@ class _HomeRouterState extends State<_HomeRouter> {
           _setLoadedProfile(null);
           return;
         }
-        await prefs.setString('perfil_usuario', savedRole!);
-        await prefs.setString(userCnpjKey(user.uid), cnpj);
-        await prefs.remove(userSetupPendingKey(user.uid));
+        await _persistProfilePreferences(
+          prefs,
+          user.uid,
+          role: savedRole,
+          cnpj: cnpj,
+          clearSetupPending: true,
+        );
         _setLoadedProfile(savedRole);
         return;
       }
 
       if (savedRole == 'Denunciante') {
-        await prefs.setString('perfil_usuario', savedRole!);
-        await prefs.remove(userSetupPendingKey(user.uid));
+        await _persistProfilePreferences(
+          prefs,
+          user.uid,
+          role: savedRole,
+          clearSetupPending: true,
+        );
         _setLoadedProfile(savedRole);
         return;
       }
@@ -193,7 +210,11 @@ class _HomeRouterState extends State<_HomeRouter> {
       }
 
       if (localRole == 'Denunciante') {
-        await prefs.remove(userSetupPendingKey(user.uid));
+        await _persistProfilePreferences(
+          prefs,
+          user.uid,
+          clearSetupPending: true,
+        );
         try {
           await saveUserRole(user, localRole!);
         } catch (error) {
@@ -213,7 +234,11 @@ class _HomeRouterState extends State<_HomeRouter> {
       }
 
       // Existing accounts without a saved choice keep using the reporter home.
-      await prefs.setString('perfil_usuario', 'Denunciante');
+      await _persistProfilePreferences(
+        prefs,
+        user.uid,
+        role: 'Denunciante',
+      );
       try {
         await saveUserRole(user, 'Denunciante');
       } catch (error) {
@@ -231,6 +256,30 @@ class _HomeRouterState extends State<_HomeRouter> {
     }
   }
 
+  Future<void> _persistProfilePreferences(
+    SharedPreferences? prefs,
+    String uid, {
+    String? role,
+    String? cnpj,
+    bool clearSetupPending = false,
+  }) async {
+    if (prefs == null) return;
+    try {
+      if (role != null) {
+        await prefs.setString('perfil_usuario', role);
+      }
+      if (cnpj != null) {
+        await prefs.setString(userCnpjKey(uid), cnpj);
+      }
+      if (clearSetupPending) {
+        await prefs.remove(userSetupPendingKey(uid));
+      }
+    } catch (error, stackTrace) {
+      debugPrint('AUTH_DIAGNOSTIC falha ao salvar SharedPreferences: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
   void _setLoadedProfile(String? perfil) {
     if (!mounted) return;
     setState(() {
@@ -238,6 +287,21 @@ class _HomeRouterState extends State<_HomeRouter> {
       _carregando = false;
       _erro = null;
     });
+  }
+
+  Future<void> _voltarParaLogin() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+    } catch (error, stackTrace) {
+      debugPrint('Erro ao encerrar sessão para voltar ao login: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Não foi possível voltar ao login. Tente novamente.'),
+        ),
+      );
+    }
   }
 
   @override
@@ -261,14 +325,8 @@ class _HomeRouterState extends State<_HomeRouter> {
                 Text(_erro!, textAlign: TextAlign.center),
                 const SizedBox(height: 16),
                 ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      _erro = null;
-                      _carregando = true;
-                    });
-                    _carregarPerfil();
-                  },
-                  child: const Text('Tentar novamente'),
+                  onPressed: _voltarParaLogin,
+                  child: const Text('Voltar para o login'),
                 ),
               ],
             ),

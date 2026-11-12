@@ -5,6 +5,15 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sos_pet/user_profile.dart';
 
+String? _androidClientBlockedMessage(FirebaseAuthException error) {
+  final message = error.message?.toLowerCase() ?? '';
+  if (!message.contains('requests from this android client application')) {
+    return null;
+  }
+  return 'O Firebase está bloqueando este app Android. Confira no Google Cloud '
+      'as restrições da chave de API, o pacote do app e o SHA-1 do APK.';
+}
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -36,40 +45,34 @@ class _LoginScreenState extends State<LoginScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
-    } on FirebaseAuthException catch (e) {
-      String mensagem;
-
-      switch (e.code) {
-        case 'invalid-email':
-          mensagem = 'O e-mail informado é inválido.';
-          break;
-        case 'user-not-found':
-        case 'invalid-credential':
-          mensagem = 'E-mail ou senha incorretos.';
-          break;
-        case 'wrong-password':
-          mensagem = 'A senha informada está incorreta.';
-          break;
-        case 'user-disabled':
-          mensagem = 'Esta conta foi desativada.';
-          break;
-        case 'too-many-requests':
-          mensagem = 'Muitas tentativas. Tente novamente mais tarde.';
-          break;
-        case 'network-request-failed':
-          mensagem = 'Verifique sua conexão com a internet.';
-          break;
-        case 'operation-not-allowed':
-          mensagem = 'O login por e-mail está desativado no Firebase. Ative esse provedor para continuar.';
-          break;
-        default:
-          mensagem = 'Não foi possível entrar. Tente novamente.';
-      }
+    } on FirebaseAuthException catch (e, stackTrace) {
+      debugPrint(
+        'AUTH_DIAGNOSTIC login FirebaseAuthException: '
+        'code=${e.code}, message=${e.message}',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+      final mensagem =
+          _androidClientBlockedMessage(e) ??
+          switch (e.code) {
+            'invalid-email' => 'O e-mail informado é inválido.',
+            'user-not-found' || 'invalid-credential' =>
+              'E-mail ou senha incorretos.',
+            'wrong-password' => 'A senha informada está incorreta.',
+            'user-disabled' => 'Esta conta foi desativada.',
+            'too-many-requests' =>
+              'Muitas tentativas. Tente novamente mais tarde.',
+            'network-request-failed' =>
+              'Verifique sua conexão com a internet.',
+            'operation-not-allowed' =>
+              'O login por e-mail está desativado no Firebase. Ative esse provedor para continuar.',
+            _ => 'Não foi possível entrar. Tente novamente.',
+          };
 
       _mostrarMensagem(mensagem);
-    } catch (e) {
+    } catch (e, stackTrace) {
       _mostrarMensagem('Ocorreu um erro inesperado.');
-      debugPrint('Erro no login: $e');
+      debugPrint('AUTH_DIAGNOSTIC login erro inesperado: $e');
+      debugPrintStack(stackTrace: stackTrace);
     } finally {
       if (mounted) {
         setState(() {
@@ -86,15 +89,18 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
+      debugPrint('AUTH_DIAGNOSTIC Google: abrindo fluxo de autenticação');
       final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
 
       // Se o usuário fechar a janela, cancela o processo.
       if (googleUser == null) {
+        debugPrint('AUTH_DIAGNOSTIC Google: fluxo cancelado pelo usuário');
         return;
       }
 
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
+      debugPrint('AUTH_DIAGNOSTIC Google: tokens obtidos');
 
       final OAuthCredential credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
@@ -104,10 +110,18 @@ class _LoginScreenState extends State<LoginScreen> {
       final result = await FirebaseAuth.instance.signInWithCredential(
         credential,
       );
+      debugPrint('AUTH_DIAGNOSTIC Google: autenticação Firebase concluída');
       final user = result.user!;
       if (result.additionalUserInfo?.isNewUser ?? false) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool(userSetupPendingKey(user.uid), true);
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool(userSetupPendingKey(user.uid), true);
+        } catch (error, stackTrace) {
+          debugPrint(
+            'AUTH_DIAGNOSTIC Google erro no SharedPreferences: $error',
+          );
+          debugPrintStack(stackTrace: stackTrace);
+        }
       }
       await saveUserProfile(
         user,
@@ -115,11 +129,20 @@ class _LoginScreenState extends State<LoginScreen> {
             ? true
             : null,
       );
-    } on FirebaseAuthException catch (e) {
-      debugPrint('Erro Firebase no Google: ${e.code}');
-      _mostrarMensagem('Não foi possível entrar com o Google.');
-    } catch (e) {
-      debugPrint('Erro no login com Google: $e');
+      debugPrint('AUTH_DIAGNOSTIC Google: perfil sincronizado');
+    } on FirebaseAuthException catch (e, stackTrace) {
+      debugPrint(
+        'AUTH_DIAGNOSTIC Google FirebaseAuthException: '
+        'code=${e.code}, message=${e.message}',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+      _mostrarMensagem(
+        _androidClientBlockedMessage(e) ??
+            'Não foi possível entrar com o Google.',
+      );
+    } catch (e, stackTrace) {
+      debugPrint('AUTH_DIAGNOSTIC Google erro inesperado: $e');
+      debugPrintStack(stackTrace: stackTrace);
       _mostrarMensagem('Falha ao entrar com o Google. Tente novamente.');
     } finally {
       if (mounted) {
@@ -368,79 +391,118 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     setState(() => _carregando = true);
-    final prefs = await SharedPreferences.getInstance();
-
-    UserCredential result;
     try {
-      result = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
-      await prefs.setBool(userSetupPendingKey(result.user!.uid), true);
-    } on FirebaseAuthException catch (e) {
-      final mensagem = switch (e.code) {
-        'email-already-in-use' => 'Este e-mail já está cadastrado.',
-        'invalid-email' => 'O e-mail informado é inválido.',
-        'weak-password' => 'Escolha uma senha com pelo menos 6 caracteres.',
-        'operation-not-allowed' =>
-          'O cadastro por e-mail está desativado no Firebase.',
-        'network-request-failed' => 'Verifique sua conexão com a internet.',
-        _ => 'Não foi possível criar a conta. Tente novamente.',
-      };
-      _mostrarMensagem(mensagem);
-      if (mounted) setState(() => _carregando = false);
-      return;
-    } catch (e) {
-      debugPrint('Erro inesperado ao criar conta: $e');
-      _mostrarMensagem('Não foi possível criar a conta. Tente novamente.');
-      if (mounted) setState(() => _carregando = false);
-      return;
-    }
+      UserCredential result;
+      try {
+        debugPrint(
+          'AUTH_DIAGNOSTIC cadastro: iniciando criação no Firebase Auth',
+        );
+        result = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+        debugPrint('AUTH_DIAGNOSTIC cadastro: Firebase Auth criou a conta');
+      } on FirebaseAuthException catch (e, stackTrace) {
+        debugPrint(
+          'AUTH_DIAGNOSTIC cadastro FirebaseAuthException: '
+          'code=${e.code}, message=${e.message}',
+        );
+        debugPrintStack(stackTrace: stackTrace);
+        final mensagem = _androidClientBlockedMessage(e) ?? switch (e.code) {
+          'email-already-in-use' => 'Este e-mail já está cadastrado.',
+          'invalid-email' => 'O e-mail informado é inválido.',
+          'weak-password' => 'Escolha uma senha com pelo menos 6 caracteres.',
+          'operation-not-allowed' =>
+            'O cadastro por e-mail está desativado no Firebase.',
+          'network-request-failed' => 'Verifique sua conexão com a internet.',
+          _ => 'Não foi possível criar a conta. Tente novamente.',
+        };
+        _mostrarMensagem(mensagem);
+        return;
+      } catch (e, stackTrace) {
+        debugPrint('AUTH_DIAGNOSTIC cadastro erro inesperado no Auth: $e');
+        debugPrintStack(stackTrace: stackTrace);
+        _mostrarMensagem('Não foi possível criar a conta. Tente novamente.');
+        return;
+      }
 
-    String? avisoPerfil;
-    try {
-      await saveUserProfile(
-        result.user!,
-        phoneNumber: telefone,
-        initialSetupPending: false,
-        role: perfil,
-        cnpj: cnpj,
-      );
-      await prefs.setString('perfil_usuario', perfil);
-      await prefs.remove(userSetupPendingKey(result.user!.uid));
-    } on FirebaseException catch (e) {
-      debugPrint('Erro Firebase ao salvar perfil: ${e.code} - ${e.message}');
-      avisoPerfil = switch (e.code) {
-        'permission-denied' =>
-          'A conta foi criada no Firebase Authentication, mas o perfil não '
-              'foi salvo no Firestore (permission-denied). Verifique e publique '
-              'as regras do Firestore.',
-        'unavailable' || 'network-request-failed' =>
-          'A conta foi criada no Firebase Authentication, mas o perfil não '
-              'foi salvo no Firestore por falha de conexão. Entre novamente '
-              'quando a conexão voltar.',
-        _ =>
-          'A conta foi criada no Firebase Authentication, mas o perfil não '
-              'foi salvo no Firestore (${e.code}).',
-      };
-    } catch (e) {
-      debugPrint('Erro inesperado ao salvar perfil do novo usuário: $e');
-      avisoPerfil =
-          'A conta foi criada no Firebase Authentication, mas não foi '
-          'possível salvar o perfil no Firestore.';
-    }
+      SharedPreferences? prefs;
+      try {
+        prefs = await SharedPreferences.getInstance();
+        await prefs.setBool(userSetupPendingKey(result.user!.uid), true);
+      } catch (e, stackTrace) {
+        debugPrint('AUTH_DIAGNOSTIC cadastro erro no SharedPreferences: $e');
+        debugPrintStack(stackTrace: stackTrace);
+      }
 
-    if (!mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
-    Navigator.of(context).pop();
-    if (avisoPerfil != null) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(avisoPerfil),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 8),
-        ),
-      );
+      String? avisoPerfil;
+      try {
+        debugPrint(
+          'AUTH_DIAGNOSTIC cadastro: iniciando gravação do perfil no Firestore',
+        );
+        await saveUserProfile(
+          result.user!,
+          phoneNumber: telefone,
+          initialSetupPending: false,
+          role: perfil,
+          cnpj: cnpj,
+        );
+        debugPrint('AUTH_DIAGNOSTIC cadastro: perfil gravado no Firestore');
+      } on FirebaseException catch (e, stackTrace) {
+        debugPrint(
+          'AUTH_DIAGNOSTIC cadastro perfil FirebaseException: '
+          'code=${e.code}, message=${e.message}',
+        );
+        debugPrintStack(stackTrace: stackTrace);
+        avisoPerfil = switch (e.code) {
+          'permission-denied' =>
+            'A conta foi criada no Firebase Authentication, mas o perfil não '
+                'foi salvo no Firestore (permission-denied). Verifique e publique '
+                'as regras do Firestore.',
+          'unavailable' || 'network-request-failed' =>
+            'A conta foi criada no Firebase Authentication, mas o perfil não '
+                'foi salvo no Firestore por falha de conexão. Entre novamente '
+                'quando a conexão voltar.',
+          _ =>
+            'A conta foi criada no Firebase Authentication, mas o perfil não '
+                'foi salvo no Firestore (${e.code}).',
+        };
+      } catch (e, stackTrace) {
+        debugPrint('AUTH_DIAGNOSTIC cadastro erro ao salvar perfil: $e');
+        debugPrintStack(stackTrace: stackTrace);
+        avisoPerfil =
+            'A conta foi criada no Firebase Authentication, mas não foi '
+            'possível salvar o perfil no Firestore.';
+      }
+
+      if (prefs != null) {
+        try {
+          await prefs.setString('perfil_usuario', perfil);
+          await prefs.remove(userSetupPendingKey(result.user!.uid));
+        } catch (e, stackTrace) {
+          debugPrint('AUTH_DIAGNOSTIC cadastro erro ao atualizar preferências: $e');
+          debugPrintStack(stackTrace: stackTrace);
+        }
+      }
+
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      Navigator.of(context).pop();
+      if (avisoPerfil != null) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(avisoPerfil),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 8),
+          ),
+        );
+      }
+    } catch (e, stackTrace) {
+      debugPrint('AUTH_DIAGNOSTIC cadastro erro inesperado: $e');
+      debugPrintStack(stackTrace: stackTrace);
+      _mostrarMensagem('Não foi possível concluir o cadastro. Tente novamente.');
+    } finally {
+      if (mounted) setState(() => _carregando = false);
     }
   }
 
@@ -713,17 +775,14 @@ class OnboardingScreen extends StatelessWidget {
       if (user == null) {
         throw StateError('Usuário não autenticado ao salvar perfil.');
       }
-      final prefs = await SharedPreferences.getInstance();
       if (role == 'Ong/Clinica') {
         await saveUserRole(user, role, cnpj: cnpj);
-        await prefs.setString('perfil_usuario', role);
-        await prefs.remove(userSetupPendingKey(user.uid));
+        await _saveRolePreferences(user.uid, role);
         if (context.mounted) onRoleSelected(role);
         return;
       }
 
-      await prefs.setString('perfil_usuario', role);
-      await prefs.remove(userSetupPendingKey(user.uid));
+      await _saveRolePreferences(user.uid, role);
 
       if (!context.mounted) return;
       onRoleSelected(role);
@@ -735,7 +794,7 @@ class OnboardingScreen extends StatelessWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Sua escolha foi salva neste aparelho, mas não foi sincronizada com a nuvem. Verifique as regras do Firestore.',
+              'Sua escolha não foi sincronizada com a nuvem. Verifique as regras do Firestore.',
             ),
             backgroundColor: Colors.orange,
             duration: Duration(seconds: 6),
@@ -755,6 +814,17 @@ class OnboardingScreen extends StatelessWidget {
           backgroundColor: Colors.red,
         ),
       );
+    }
+  }
+
+  Future<void> _saveRolePreferences(String uid, String role) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('perfil_usuario', role);
+      await prefs.remove(userSetupPendingKey(uid));
+    } catch (error, stackTrace) {
+      debugPrint('AUTH_DIAGNOSTIC falha ao salvar perfil local: $error');
+      debugPrintStack(stackTrace: stackTrace);
     }
   }
 

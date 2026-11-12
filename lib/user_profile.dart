@@ -273,21 +273,29 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     if (sair != true) return;
 
     try {
-      final preferencias = await SharedPreferences.getInstance();
-      await preferencias.remove('perfil_usuario');
       await FirebaseAuth.instance.signOut();
-
-      // Desempilha todas as telas abertas e redireciona direto para a raiz (AuthGate -> LoginScreen)
-      if (mounted) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
-      }
-    } catch (error) {
+    } catch (error, stackTrace) {
       debugPrint('Erro ao sair da conta: $error');
+      debugPrintStack(stackTrace: stackTrace);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Não foi possível sair da conta.')),
         );
       }
+      return;
+    }
+
+    try {
+      final preferencias = await SharedPreferences.getInstance();
+      await preferencias.remove('perfil_usuario');
+    } catch (error, stackTrace) {
+      debugPrint('Não foi possível limpar o perfil salvo localmente: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+
+    // AuthGate observa a sessão e encaminha o usuário à tela de login.
+    if (mounted) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
     }
   }
 

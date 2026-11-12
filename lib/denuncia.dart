@@ -9,7 +9,6 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sos_pet/avaliacao_dialog.dart';
 
 // Tela de formulário completo para registro de denúncia de animais abandonados ou em risco
@@ -381,6 +380,18 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
         'statusAtualizadoEm': FieldValue.serverTimestamp(),
       };
 
+      var primeiraDenuncia = false;
+      try {
+        final denunciasAnteriores = await FirebaseFirestore.instance
+            .collection('denuncias')
+            .where('usuarioId', isEqualTo: usuario.uid)
+            .limit(1)
+            .get(const GetOptions(source: Source.server));
+        primeiraDenuncia = denunciasAnteriores.docs.isEmpty;
+      } catch (e) {
+        debugPrint('Não foi possível verificar denúncias anteriores: $e');
+      }
+
       // 5. Salva um novo documento na coleção "denuncias".
       final resultado = await FirebaseFirestore.instance
           .collection('denuncias')
@@ -390,22 +401,7 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
 
       if (!mounted) return;
 
-      final chaveAvaliacao = 'avaliacao_app_apresentada_${usuario.uid}';
-      var exibirAvaliacao = false;
-      try {
-        final preferencias = await SharedPreferences.getInstance();
-        exibirAvaliacao = !(preferencias.getBool(chaveAvaliacao) ?? false);
-        if (exibirAvaliacao) {
-          await preferencias.setBool(chaveAvaliacao, true);
-        }
-      } catch (e) {
-        debugPrint('Não foi possível registrar a exibição da avaliação: $e');
-        exibirAvaliacao = true;
-      }
-
-      if (!mounted) return;
-
-      if (exibirAvaliacao) {
+      if (primeiraDenuncia) {
         final nomeUsuario = usuario.displayName?.trim();
         final nomeFallback = usuario.email?.split('@').first;
         await showDialog<bool>(
